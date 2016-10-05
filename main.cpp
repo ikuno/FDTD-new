@@ -11,7 +11,6 @@
 #include "./glm/glm.hpp"
 
 #include "Program.h"
-// #include "Texture.h"
 #include "Camera.h"
 
 #define NK_INCLUDE_FIXED_TYPES
@@ -29,8 +28,6 @@
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
 struct nk_context *ctx;
-
-int i, j;
 
 const glm::vec2 SCREEN_SIZE(1080, 1080);
 const glm::vec2 WINDOW_POS(128, 128);
@@ -201,7 +198,7 @@ void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
       data[index*3+2] = (GLubyte)0;
     }
   }
-  j=gx/2-R/2;
+  int j=gx/2-R/2;
   for(int i=gy/2-R/2 ; i<gy/2+R/2 ; i++, j+=(int)sqrt(2)){
     for(int k=gx/2-R/2 ; k<=j ; k++){
       ez[j][k] = 0.0;
@@ -214,7 +211,7 @@ void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
   //wall
   for(int i=0;i<gy;i++)
   {
-    j=0;
+    int j=0;
     ez[i][j]=0.0;
     index = gy * j + i;
     data[index*3+0] = (GLubyte)0;
@@ -227,9 +224,9 @@ void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
     data[index*3+1] = (GLubyte)0;
     data[index*3+2] = (GLubyte)0;
   }
-  for(j=0;j<gx;j++)
+  for(int j=0;j<gx;j++)
   {
-    i=0;
+    int i=0;
     ez[i][j]=0.0;
     index = gy * j + i;
     data[index*3+0] = (GLubyte)0;
@@ -273,8 +270,8 @@ void CPU_Create_Data(GLubyte *data, float **ez, int gx, int gy, float yellow, fl
 }
 
 void CPU_MAX_MIN(float **ez, float *max, float *min, int gx, int gy){
-  for(j=1 ; j<gx-1 ; j++){
-    for(i=0 ; i<gy-1 ; i++){
+  for(int j=1 ; j<gx-1 ; j++){
+    for(int i=0 ; i<gy-1 ; i++){
       if(ez[i][j] > *max){
         *max = ez[i][j];
       }
@@ -757,8 +754,8 @@ void TextureInit()
 
   h_g_data = (GLubyte *)malloc(sizeof(GLubyte) * GRID_SIZE.x * GRID_SIZE.y * 3);
 
-  for(i=0; i<GRID_SIZE.x; i++)
-    for(j=0; j<GRID_SIZE.y; j++)
+  for(int i=0; i<GRID_SIZE.x; i++)
+    for(int j=0; j<GRID_SIZE.y; j++)
     {
       int index = i*100+j;
       h_g_data[index*3+0] = (GLubyte)0;
@@ -769,12 +766,11 @@ void TextureInit()
 
 void PMLInit()
 {
-  int i, j;
   float Z;
 
   //PML init
-  for(i=0;i<(int)GRID_SIZE.y;i++){
-    for(j=0;j<(int)GRID_SIZE.x;j++){
+  for(int i=0;i<(int)GRID_SIZE.y;i++){
+    for(int j=0;j<(int)GRID_SIZE.x;j++){
       Z = (ECX[i] * delta_t)/(2.0*epsilon_M[i][j]);
       CEZX[i][j]=(1-Z)/(1+Z);
       CEZXL[i][j]=(delta_t/epsilon_M[i][j])/(1+Z)*(1.0/delta_x);
@@ -791,52 +787,51 @@ void PMLInit()
 
 void FDTDInit()
 {
-  int i, j;
   Ez_max=0.0;
   Ez_min=0.0;
   // sampling_list=(float *)malloc(sizeof(float)*100);
   // for(i=0;i<100;i++)
   // sampling_list[i]=0.0;
   float ZZ;
-  for(j = 0; j<(int)GRID_SIZE.y; j++){
-    for(i = 0; i<(int)GRID_SIZE.x; i++){
+  for(int j = 0; j<(int)GRID_SIZE.y; j++){
+    for(int i = 0; i<(int)GRID_SIZE.x; i++){
       mu_M[i][j]  =  mu0;
       epsilon_M[i][j] = epsilon0;
       sigma_M[i][j] = sigma0;
     }
   }
 
-  for(j = 0; j<(int)GRID_SIZE.y; j++){
-    for(i = 0;i<(int)GRID_SIZE.x; i++){
-      Ez[i][j] = 0.0;
-      Hx[i][j] = 0.0;
-      Hy[i][j] = 0.0;
-      CEZX[i][j] = 0.0;
-      CEZXL[i][j] = 0.0;
-      CHYX[i][j] = 0.0;
-      CHYXL[i][j] = 0.0;
-      CEZY[i][j] = 0.0;
-      CEZYL[i][j] = 0.0;
-      CHXY[i][j] = 0.0;
-      CHXYL[i][j] = 0.0;
+  // for(j = 0; j<(int)GRID_SIZE.y; j++){
+  //   for(i = 0;i<(int)GRID_SIZE.x; i++){
+  //     Ez[i][j] = 0.0;
+  //     Hx[i][j] = 0.0;
+  //     Hy[i][j] = 0.0;
+  //     CEZX[i][j] = 0.0;
+  //     CEZXL[i][j] = 0.0;
+  //     CHYX[i][j] = 0.0;
+  //     CHYXL[i][j] = 0.0;
+  //     CEZY[i][j] = 0.0;
+  //     CEZYL[i][j] = 0.0;
+  //     CHXY[i][j] = 0.0;
+  //     CHXYL[i][j] = 0.0;
+  //
+  //     CEZ[i][j] = 0.0;
+  //     CEZLX[i][j]=0.0;
+  //     CEZLY[i][j]=0.0;
+  //     CHXLY[i][j]=0.0;
+  //     CHYLX[i][j]=0.0;
+  //   }
+  // }
+  //
+  // for(i=0;i<(int)GRID_SIZE.x;i++){
+  //   ECX[i]=0.0;
+  // }
+  //
+  // for(j=0;j<(int)GRID_SIZE.x;j++){
+  //   ECY[j]=0.0;
+  // }
 
-      CEZ[i][j] = 0.0;
-      CEZLX[i][j]=0.0;
-      CEZLY[i][j]=0.0;
-      CHXLY[i][j]=0.0;
-      CHYLX[i][j]=0.0;
-    }
-  }
-
-  for(i=0;i<(int)GRID_SIZE.x;i++){
-    ECX[i]=0.0;
-  }
-
-  for(j=0;j<(int)GRID_SIZE.x;j++){
-    ECY[j]=0.0;
-  }
-
-  for(i=0;i<L;i++){
+  for(int i=0;i<L;i++){
     ECX[i] = ecmax * pow((L-i+0.5)/L,M);
     ECX[(int)GRID_SIZE.x-i-1] = ECX[i];
     ECY[i] = ECX[i];
@@ -844,8 +839,8 @@ void FDTDInit()
   }
 
   //FDTD init
-  for(i=0;i<(int)GRID_SIZE.x;i++){
-    for(j=0;j<(int)GRID_SIZE.y;j++){
+  for(int i=0;i<(int)GRID_SIZE.x;i++){
+    for(int j=0;j<(int)GRID_SIZE.y;j++){
       ZZ = (sigma_M[i][j] * delta_t)/(2.0*epsilon_M[i][j]);
       CEZ[i][j]=(1-ZZ)/(1+ZZ);
       CEZLX[i][j]=(delta_t/epsilon_M[i][j])/(1+ZZ)*(1.0/delta_x);
@@ -906,7 +901,6 @@ void ParamInit()
 
 void AllocInit()
 {
-  int i;
   Ez  =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
   Hx  =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
   Hy  =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
@@ -941,7 +935,7 @@ void AllocInit()
   CHXLY = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
   CHYLX  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
 
-  for(i=0;i<(int)GRID_SIZE.y;i++){
+  for(int i=0;i<(int)GRID_SIZE.y;i++){
     Ez[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
     memset(Ez[i], 0, sizeof(float)*(int)GRID_SIZE.x);
     Hx[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
@@ -996,8 +990,7 @@ void AllocInit()
 }
 void AllocFree()
 {
-  int i;
-  for(i=0;i<(int)GRID_SIZE.y;i++)
+  for(int i=0;i<(int)GRID_SIZE.y;i++)
   {
     free(Ez[i]);
     free(Hx[i]);
