@@ -41,7 +41,6 @@ GLubyte *h_g_data;
 GLFWwindow *gWindow = NULL;
 //GLSL
 tdogl::Program *gProgram = NULL;
-// tdogl::Texture *gTexture = NULL;
 tdogl::Camera gCamera;
 
 GLuint gVAO = 0;
@@ -64,13 +63,11 @@ float mu0;
 const float sigma0 = 0;
 const float epsilon0 = 8.854187e-12f;
 const int M = 4;
-const int L = 12;
-/* int L = 24; */
+const int L = 12; /* int L = 24; */
 float r0 = -6;
 float ecmax;
 float Ez_max = 2.060459378159e-03f;
 float Ez_min = -2.060459378159e-03f;
-// float Ez_min = -7.196258220476e-04f;
 float Ez_range;
 float Ez_yellow;
 float Ez_green;
@@ -127,7 +124,7 @@ void Render(void);
 void AllocInit(void);
 void AllocFree(void);
 void ParamInit(void);
-// void PrintInfo(void);
+void PrintInfo(void);
 void FDTDInit(void);
 void PMLInit(void);
 void TextureInit(void);
@@ -140,14 +137,14 @@ void GLFW_GLEWInit(void);
 float CalcFPS(GLFWwindow *gWindow, float theTimeInterval = 1.0, std::string theWindowTitle = "NONE");
 void CameraInit(void);
 void Update(float secondsElapsed);
-// void CheckOpenGLError(void);
+void CheckOpenGLError(void);
 void OnScroll(GLFWwindow *window, double deltaX, double deltaY);
 void MouseInit(void);
 void GUIInit(struct nk_context *ctx, GLFWwindow *gWindow);
 void GUIRender(struct nk_context *ctx);
 void OnClick(GLFWwindow *window, int button, int action, int mods);
 double mapping(double value, double istart, double istop, double ostart, double ostop);
-// unsigned ftoi(double d);
+unsigned ftoi(double d);
 void CPU_EZ(float **ez, float **cez, float **cezlx, float **hy, float **cezly, float **hx, int gx, int gy);
 void CPU_HX(float **hx, float **chxly, float **ez, int gc, int gy);
 void CPU_HY(float **hy, float **chylx, float **ez, int gx, int gy);
@@ -350,11 +347,11 @@ void CPU_HY(float **hy, float **chylx, float **ez, int gx, int gy){
   }
 }
 
-// unsigned ftoi(double d)
-// {
-//   d += 4503599627370496.0;
-//   return (unsigned &)d;
-// }
+unsigned ftoi(double d)
+{
+  d += 4503599627370496.0;
+  return (unsigned &)d;
+}
 
 double mapping(double value, double istart, double istop, double ostart, double ostop)
 {
@@ -515,13 +512,13 @@ void OnScroll(GLFWwindow *window, double deltaX, double deltaY)
   gScrollY += deltaY;
 }
 
-// void CheckOpenGLError(void)
-// {
-//   GLenum error = glGetError();
-//   if(error != GL_NO_ERROR)
-//     std::cerr << "OpenGL Error: " << error << std::endl;
-// }
-//
+void CheckOpenGLError(void)
+{
+  GLenum error = glGetError();
+  if(error != GL_NO_ERROR)
+    std::cerr << "OpenGL Error: " << error << std::endl;
+}
+
 void Update(float secondsElapsed)
 {
   //keyboard
@@ -575,44 +572,44 @@ void CameraInit()
   gCamera.setViewportAspectRatio(SCREEN_SIZE.x / SCREEN_SIZE.y);
 }
 
-// float CalcFPS(GLFWwindow *gWindow, float theTimeInterval, std::string theWindowTitle)
-// {
-//   static float t0Value = glfwGetTime();
-//   static int fpsFrameCount = 0;
-//   static float fps = 0.0;
-//
-//   float currentTime = glfwGetTime();
-//
-//   if(theTimeInterval < 0.1)
-//     theTimeInterval = 0.1;
-//   if(theTimeInterval > 10.0)
-//     theTimeInterval = 10.0;
-//
-//   if((currentTime - t0Value) > theTimeInterval)
-//   {
-//     fps = (float)fpsFrameCount / (currentTime - t0Value);
-//
-//     if(theWindowTitle != "NONE")
-//     {
-//       std::ostringstream stream;
-//       stream << fps;
-//       std::string fpsString = stream.str();
-//
-//       theWindowTitle += " | FPS: " + fpsString;
-//
-//       const char *pszConstString = theWindowTitle.c_str();
-//       glfwSetWindowTitle(gWindow, pszConstString);
-//     }else{
-//       std::cout << "FPS: " << fps << std::endl;
-//     }
-//
-//     fpsFrameCount = 0;
-//     t0Value = glfwGetTime();
-//   }else{
-//     fpsFrameCount++;
-//   }
-//   return fps;
-// }
+float CalcFPS(GLFWwindow *gWindow, float theTimeInterval, std::string theWindowTitle)
+{
+  static float t0Value = glfwGetTime();
+  static int fpsFrameCount = 0;
+  static float fps = 0.0;
+
+  float currentTime = glfwGetTime();
+
+  if(theTimeInterval < 0.1)
+    theTimeInterval = 0.1;
+  if(theTimeInterval > 10.0)
+    theTimeInterval = 10.0;
+
+  if((currentTime - t0Value) > theTimeInterval)
+  {
+    fps = (float)fpsFrameCount / (currentTime - t0Value);
+
+    if(theWindowTitle != "NONE")
+    {
+      std::ostringstream stream;
+      stream << fps;
+      std::string fpsString = stream.str();
+
+      theWindowTitle += " | FPS: " + fpsString;
+
+      const char *pszConstString = theWindowTitle.c_str();
+      glfwSetWindowTitle(gWindow, pszConstString);
+    }else{
+      std::cout << "FPS: " << fps << std::endl;
+    }
+
+    fpsFrameCount = 0;
+    t0Value = glfwGetTime();
+  }else{
+    fpsFrameCount++;
+  }
+  return fps;
+}
 
 void GLFW_GLEWInit()
 {
@@ -801,36 +798,6 @@ void FDTDInit()
     }
   }
 
-  // for(j = 0; j<(int)GRID_SIZE.y; j++){
-  //   for(i = 0;i<(int)GRID_SIZE.x; i++){
-  //     Ez[i][j] = 0.0;
-  //     Hx[i][j] = 0.0;
-  //     Hy[i][j] = 0.0;
-  //     CEZX[i][j] = 0.0;
-  //     CEZXL[i][j] = 0.0;
-  //     CHYX[i][j] = 0.0;
-  //     CHYXL[i][j] = 0.0;
-  //     CEZY[i][j] = 0.0;
-  //     CEZYL[i][j] = 0.0;
-  //     CHXY[i][j] = 0.0;
-  //     CHXYL[i][j] = 0.0;
-  //
-  //     CEZ[i][j] = 0.0;
-  //     CEZLX[i][j]=0.0;
-  //     CEZLY[i][j]=0.0;
-  //     CHXLY[i][j]=0.0;
-  //     CHYLX[i][j]=0.0;
-  //   }
-  // }
-  //
-  // for(i=0;i<(int)GRID_SIZE.x;i++){
-  //   ECX[i]=0.0;
-  // }
-  //
-  // for(j=0;j<(int)GRID_SIZE.x;j++){
-  //   ECY[j]=0.0;
-  // }
-
   for(int i=0;i<L;i++){
     ECX[i] = ecmax * pow((L-i+0.5)/L,M);
     ECX[(int)GRID_SIZE.x-i-1] = ECX[i];
@@ -851,26 +818,26 @@ void FDTDInit()
   }
 }
 
-// void PrintInfo()
-// {
-//   std::cout << "\n-------------------------------\n" << std::endl;
-//
-//   std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
-//   std::cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
-//   std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
-//   std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
-//
-//   std::cout << "\n-------------------------------\n" << std::endl;
-//
-//   std::cout << "lambda: " << lambda << std::endl;
-//   std::cout << "freq: " << freq << std::endl;
-//   std::cout << "rectD: " << rectD << std::endl;
-//   std::cout << "delta_x: " << delta_x << std::endl;
-//   std::cout << "delta_y: " << delta_y << std::endl;
-//   std::cout << "delta_t: " << delta_t << std::endl;
-//
-//   std::cout << "\n-------------------------------\n" << std::endl;
-// }
+void PrintInfo()
+{
+  std::cout << "\n-------------------------------\n" << std::endl;
+
+  std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
+  std::cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+  std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
+  std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+
+  std::cout << "\n-------------------------------\n" << std::endl;
+
+  std::cout << "lambda: " << lambda << std::endl;
+  std::cout << "freq: " << freq << std::endl;
+  std::cout << "rectD: " << rectD << std::endl;
+  std::cout << "delta_x: " << delta_x << std::endl;
+  std::cout << "delta_y: " << delta_y << std::endl;
+  std::cout << "delta_t: " << delta_t << std::endl;
+
+  std::cout << "\n-------------------------------\n" << std::endl;
+}
 
 void ParamInit()
 {
@@ -1132,7 +1099,7 @@ void AppMain()
 
   PMLInit();
 
-  // PrintInfo();
+  PrintInfo();
 
   TextureInit();
 
@@ -1166,7 +1133,7 @@ void AppMain()
 
     Render();
 
-    // CalcFPS(gWindow, 1.0, "GL3.2 FDTD2D_TM");
+    CalcFPS(gWindow, 1.0, "GL3.2 FDTD2D_TM");
 
     float thisTime = glfwGetTime();
     Update((float)(thisTime - lastTime));
