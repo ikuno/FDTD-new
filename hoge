@@ -1,0 +1,6 @@
+all:
+  g++ -c Shader.cpp
+    g++ -c Program.cpp
+      nvcc -c Kernel.cu
+        g++ -c main.cpp -lglfw3 -lGLEW -lGL -lXrandr -lXinerama -lXcursor -lXi -lXxf86vm -lX11 -lpthread -lrt -lm -I/usr/local/cuda/include -L/usr/local/cuda/lib -L/usr/local/cuda/lib64
+          nvcc Kernel.o Program.o Shader.o main.o  -Xcompiler "-lglfw3 -lGLEW -lGL -lXrandr -lXinerama -lXcursor -lXi -lXxf86vm -lX11 -lpthread -lrt -lm" -Xptxas -v -lglfw3
