@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": ["/usr/include","/usr/local/include", "/usr/local/Cellar/glfw3/3.1.2/include", "/usr/local/Cellar/glew/1.13.0/include"],
+            "browse" : {
+                "limitSymbolsToIncludedHeaders" : true,
+                "databaseFilename" : ""
+            }
+        },
+        {
+            "name": "Linux",
+            "includePath": ["/usr/include"],
+            "browse" : {
+                "limitSymbolsToIncludedHeaders" : true,
+                "databaseFilename" : ""
+            }
+        },
+        {
+            "name": "Win32",
+            "includePath": ["c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include"],
+            "browse" : {
+                "limitSymbolsToIncludedHeaders" : true,
+                "databaseFilename" : ""
+            }
+        }
+    ]
+}
