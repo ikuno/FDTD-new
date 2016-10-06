@@ -104,6 +104,9 @@ __global__ void GPU_Data(GLubyte *data, float **ez, float yellow, float green, f
   }
 }
 
+void GPU_AllocInit(int gx, int gy){
+
+}
 
 void LaunchGPUKernel(GLubyte *data, float **ez, float **hx, float **hy, float **cezx, float **cezxl, float **cezy, float **cezyl, float **ezx, float **ezy, float **cez, float **cezlx, float **cezly, float **chyx, float **chyxl, float **chxy, float **chxyl, float **hxy, float **hyx, float **chxly ,float **chylx, int t, int L, int power_x, int power_y, int width, int height, float yellow, float green, float blue, float max, float min, float step){
 
@@ -114,4 +117,5 @@ void LaunchGPUKernel(GLubyte *data, float **ez, float **hx, float **hy, float **
   GPU_H <<< grid, block >>> (ez, hx, hy, chyx, chyxl, chxy, chxyl, hxy, hyx, chxly, chylx, L, width, height);
   GPU_Data <<<grid, block >>> (data, ez, yellow, green, blue, max, min, width, height);
 }
+
 

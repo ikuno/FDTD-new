@@ -76,12 +76,16 @@ float Ez_lightblue;
 // float pulse;
 float T = 0.0;
 
-float **Ez, **Hx, **Hy, **sigma_M, **epsilon_M, **mu_M;
+float *Ez, *Hx, *Hy, *sigma_M, *epsilon_M, *mu_M;
 float *ECX, *ECY;
-float **CEZX, **CEZXL, **CHYX, **CHYXL, **CEZY, **CEZYL, **CHXY, **CHXYL;
-float **EZX, **EZY, **HXY, **HYX;
+float *CEZX, *CEZXL, *CHYX, *CHYXL, *CEZY, *CEZYL, *CHXY, *CHXYL;
+float *EZX, *EZY, *HXY, *HYX;
+float *CEZ, *CEZLX, *CEZLY, *CHXLY, *CHYLX;
 
-float **CEZ, **CEZLX, **CEZLY, **CHXLY, **CHYLX;
+// float *d_Ez, *d_Hx, *d_Hy;
+// float *d_CEZX, *d_CEZXL, *d_CHYX, *d_CHYXL, *d_CEZY, *d_CEZYL, *d_CHXY, *d_CHXYL;
+// float *d_EZX, *d_EZY, *d_HXY, *d_HYX;
+// float *d_CEZ, *d_CEZLX, *d_CEZLY, *d_CHXLY, *d_CHYLX;
 
 
 // counter
@@ -121,7 +125,7 @@ void OnError(int errorCode, const char *msg);
 void AppMain(void);
 void LoadShaders(void);
 void Render(void);
-void AllocInit(void);
+void AllocInit(int gx, int gy);
 void AllocFree(void);
 void ParamInit(void);
 void PrintInfo(void);
@@ -145,33 +149,33 @@ void GUIRender(struct nk_context *ctx);
 void OnClick(GLFWwindow *window, int button, int action, int mods);
 double mapping(double value, double istart, double istop, double ostart, double ostop);
 unsigned ftoi(double d);
-void CPU_EZ(float **ez, float **cez, float **cezlx, float **hy, float **cezly, float **hx, int gx, int gy);
-void CPU_HX(float **hx, float **chxly, float **ez, int gc, int gy);
-void CPU_HY(float **hy, float **chylx, float **ez, int gx, int gy);
-void CPU_PML_EZ(float **ezx, float **cezx, float **cezxl, float **hy, float **ezy, float **cezy, float **cezyl, float **hx, float **ez, int gx, int gy, int l);
-void CPU_PML_HX(float **hxy, float **chxy, float **chxyl, float **ez, float **hx, int gx, int gy, int l);
-void CPU_Input(float **ez, int px, int py, float p, int gx, int gy);
-void CPU_PML_HY(float **hyx, float **chyx, float **chyxl, float **ez, float **hy, int gx, int gy, int l);
-void CPU_MAX_MIN(float **ez, float *max, float *min, int gx, int gy);
-void CPU_Create_Data(GLubyte *data, float **ez, int gx, int gy, float yellow, float green, float blue, float max, float min);
-void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data);
-void FDTD2dTM(float **_Ez, float **_Hx, float **_Hy,
-              float **_CEZ, float **_CEZLX, float **_CEZLY, float **_CHXLY, float **_CHYLX,
-              float **_CEZX, float **_CEZXL, float **_CHYX, float **_CHYXL, float **_CEZY, float **_CEZYL, float **_CHXY, float **_CHXYL,
-              float **_EZX, float **_EZY, float **_HXY, float **_HYX, 
+void CPU_EZ(float *ez, float *cez, float *cezlx, float *hy, float *cezly, float *hx, int gx, int gy);
+void CPU_HX(float *hx, float *chxly, float *ez, int gc, int gy);
+void CPU_HY(float *hy, float *chylx, float *ez, int gx, int gy);
+void CPU_PML_EZ(float *ezx, float *cezx, float *cezxl, float *hy, float *ezy, float *cezy, float *cezyl, float *hx, float *ez, int gx, int gy, int l);
+void CPU_PML_HX(float *hxy, float *chxy, float *chxyl, float *ez, float *hx, int gx, int gy, int l);
+void CPU_Input(float *ez, int px, int py, float p, int gx, int gy);
+void CPU_PML_HY(float *hyx, float *chyx, float *chyxl, float *ez, float *hy, int gx, int gy, int l);
+void CPU_MAX_MIN(float *ez, float *max, float *min, int gx, int gy);
+void CPU_Create_Data(GLubyte *data, float *ez, int gx, int gy, float yellow, float green, float blue, float max, float min);
+void Blank_Wall(float *ez, int gx, int gy, int R, GLubyte *data);
+void FDTD2dTM(float *_Ez, float *_Hx, float *_Hy,
+              float *_CEZ, float *_CEZLX, float *_CEZLY, float *_CHXLY, float *_CHYLX,
+              float *_CEZX, float *_CEZXL, float *_CHYX, float *_CHYXL, float *_CEZY, float *_CEZYL, float *_CHXY, float *_CHXYL,
+              float *_EZX, float *_EZY, float *_HXY, float *_HYX, 
               float _step, int *_kt, glm::vec2 _GRID_SIZE, float *_T,
               int _power_x, int _power_y, float *_Ez_max, float *_Ez_min,
               GLubyte *_h_g_data, float _rectD, float _L,
               float _Ez_yellow, float _Ez_green, float _Ez_lightblue,
               float _delta_t);
 
-void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
+void Blank_Wall(float *ez, int gx, int gy, int R, GLubyte *data){
   //blank
   int index;
   for(int i=0; i<gy ; i++){
     for(int j=0 ; j<gx/2-R/2 ; j++){
-      ez[i][j] = 0.0;
       index = gy * j + i;
+      ez[index] = 0.0;
       data[index*3+0] = (GLubyte)0;
       data[index*3+1] = (GLubyte)0;
       data[index*3+2] = (GLubyte)0;
@@ -179,8 +183,8 @@ void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
   }
   for(int i=0 ; i<gy/2-R/2 ; i++){
     for(int j=gx/2+R/2 ; j<gx ; j++){
-      ez[i][j] = 0.0;
       index = gy * j + i;
+      ez[index] = 0.0;
       data[index*3+0] = (GLubyte)0;
       data[index*3+1] = (GLubyte)0;
       data[index*3+2] = (GLubyte)0;
@@ -188,8 +192,8 @@ void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
   }
   for(int i=gy/2+R/2 ; i<gy ; i++){
     for(int j=gx/2-R/2 ; j<gx ; j++){
-      ez[i][j] = 0.0;
       index = gy * j + i;
+      ez[index] = 0.0;
       data[index*3+0] = (GLubyte)0;
       data[index*3+1] = (GLubyte)0;
       data[index*3+2] = (GLubyte)0;
@@ -198,25 +202,26 @@ void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
   int j=gx/2-R/2;
   for(int i=gy/2-R/2 ; i<gy/2+R/2 ; i++, j+=(int)sqrt(2)){
     for(int k=gx/2-R/2 ; k<=j ; k++){
-      ez[j][k] = 0.0;
       index = gy * k + i;
+      ez[index] = 0.0;
       data[index*3+0] = (GLubyte)0;
       data[index*3+1] = (GLubyte)0;
       data[index*3+2] = (GLubyte)0;
     }
   }
+
   //wall
   for(int i=0;i<gy;i++)
   {
     int j=0;
-    ez[i][j]=0.0;
     index = gy * j + i;
+    ez[index]=0.0;
     data[index*3+0] = (GLubyte)0;
     data[index*3+1] = (GLubyte)0;
     data[index*3+2] = (GLubyte)0;
     j=gx-1;
-    ez[i][j]=0.0;
     index = gy * j + i;
+    ez[index]=0.0;
     data[index*3+0] = (GLubyte)0;
     data[index*3+1] = (GLubyte)0;
     data[index*3+2] = (GLubyte)0;
@@ -224,25 +229,25 @@ void Blank_Wall(float **ez, int gx, int gy, int R, GLubyte *data){
   for(int j=0;j<gx;j++)
   {
     int i=0;
-    ez[i][j]=0.0;
-    index = gy * j + i;
+    index = gy * i + j;
+    ez[index]=0.0;
     data[index*3+0] = (GLubyte)0;
     data[index*3+1] = (GLubyte)0;
     data[index*3+2] = (GLubyte)0;
     i=gy-1;
-    ez[i][j]=0.0;
-    index = gy * j + i;
+    index = gy * i + j;
+    ez[index]=0.0;
     data[index*3+0] = (GLubyte)0;
     data[index*3+1] = (GLubyte)0;
     data[index*3+2] = (GLubyte)0;
   }
 }
 
-void CPU_Create_Data(GLubyte *data, float **ez, int gx, int gy, float yellow, float green, float blue, float *max, float *min){
+void CPU_Create_Data(GLubyte *data, float *ez, int gx, int gy, float yellow, float green, float blue, float *max, float *min){
   for(int j=0 ; j<gx ; j++){
     for(int i=0 ; i<gy ; i++){
-      int index = gy * j + i;
-      float v = ez[i][j];
+      int index = gy * i + j;
+      float v = ez[index];
       if(v > yellow){
         float d = mapping(v, yellow, *max, 0, 255);
         data[index * 3 + 0] = (GLubyte)255;
@@ -266,83 +271,92 @@ void CPU_Create_Data(GLubyte *data, float **ez, int gx, int gy, float yellow, fl
   }
 }
 
-void CPU_MAX_MIN(float **ez, float *max, float *min, int gx, int gy){
+void CPU_MAX_MIN(float *ez, float *max, float *min, int gx, int gy){
   for(int j=1 ; j<gx-1 ; j++){
     for(int i=0 ; i<gy-1 ; i++){
-      if(ez[i][j] > *max){
-        *max = ez[i][j];
+      int index = gx * i + j;
+      if(ez[index] > *max){
+        *max = ez[index];
       }
-      if(ez[i][j] < *min){
-        *min = ez[i][j];
+      if(ez[index] < *min){
+        *min = ez[index];
       }
     }
   }
 }
 
-void CPU_PML_HY(float **hyx, float **chyx, float **chyxl, float **ez, float **hy, int gx, int gy, int l){
-  for(int j=1 ; j<gx-1 ; j++){
-    for(int i=0 ; i<gy-1 ; i++){
-      if(i<l || i>gy-l-1 || j<l || j>gx-l-1){
-        hyx[i][j] = chyx[i][j] * hyx[i][j] + chyxl[i][j] * (ez[i+1][j]-ez[i][j]);
-        hy[i][j] = hyx[i][j];
-      }
-    }
-  }
-}
-
-void CPU_Input(float **ez, int px, int py, float p, int gx, int gy){
-  for(int j=1 ; j<gx-1 ; j++){
-    for(int i=1 ; i<gy-1 ; i++){
+void CPU_Input(float *ez, int px, int py, float p, int gx, int gy){
+  for(int j=1 ; j<gy-1 ; j++){
+    for(int i=1 ; i<gx-1 ; i++){
       if( i==px && j==py ){
-        ez[i][j] = 1.0/376.7 * p;
+        int index = j * gx + i;
+        ez[index] = 1.0/376.7 * p;
       }
     }
   }
 }
 
-void CPU_PML_HX(float **hxy, float **chxy, float **chxyl, float **ez, float **hx, int gx, int gy, int l){
-  for(int j=0 ; j<gx-1 ; j++){
-    for(int i=1 ; i<gy-1 ; i++){
+void CPU_PML_HY(float *hyx, float *chyx, float *chyxl, float *ez, float *hy, int gx, int gy, int l){
+  for(int j=1 ; j<gy-1 ; j++){
+    for(int i=0 ; i<gx-1 ; i++){
+      int index = j * gx + i;
       if(i<l || i>gy-l-1 || j<l || j>gx-l-1){
-        hxy[i][j] = chxy[i][j] * hxy[i][j] - chxyl[i][j] * (ez[i][j+1]-ez[i][j]);
-        hx[i][j] = hxy[i][j];
+        hyx[index] = chyx[index] * hyx[index] + chyxl[index] * (ez[index+1]-ez[index]);
+        hy[index] = hyx[index];
       }
     }
   }
 }
 
-void CPU_PML_EZ(float **ezx, float **cezx, float **cezxl, float **hy, float **ezy, float **cezy, float **cezyl, float **hx, float **ez, int gx, int gy, int l){
-  for(int j=1 ; j<gx-1 ; j++){
-    for(int i=1 ; i<gy-1 ; i++){
+
+void CPU_PML_HX(float *hxy, float *chxy, float *chxyl, float *ez, float *hx, int gx, int gy, int l){
+  for(int j=0 ; j<gy-1 ; j++){
+    for(int i=1 ; i<gx-1 ; i++){
+      int index = j * gx + i;
+      if(i<l || i>gy-l-1 || j<l || j>gx-l-1){
+        hxy[index] = chxy[index] * hxy[index] - chxyl[index] * (ez[index+gx]-ez[index]);
+        hx[index] = hxy[index];
+      }
+    }
+  }
+}
+
+void CPU_PML_EZ(float *ezx, float *cezx, float *cezxl, float *hy, float *ezy, float *cezy, float *cezyl, float *hx, float *ez, int gx, int gy, int l){
+  for(int j=1 ; j<gy-1 ; j++){
+    for(int i=1 ; i<gx-1 ; i++){
+      int index = j * gx + i;
       if(i<l || (i>gy-l-1) || j<l || (j>gx-l-1)){
-        ezx[i][j] = cezx[i][j] * ezx[i][j] + cezxl[i][j] * (hy[i][j] - hy[i-1][j]);
-        ezy[i][j] = cezy[i][j] * ezy[i][j] - cezyl[i][j] * (hx[i][j] - hx[i][j-1]);
-        ez[i][j] = ezx[i][j] + ezy[i][j];
+        ezx[index] = cezx[index] * ezx[index] + cezxl[index] * (hy[index] - hy[index-1]);
+        ezy[index] = cezy[index] * ezy[index] - cezyl[index] * (hx[index] - hx[index-gx]);
+        ez[index] = ezx[index] + ezy[index];
       }
     }
   }
 }
 
-void CPU_EZ(float **ez, float **cez, float **cezlx, float **hy, float **cezly, float **hx, int gx, int gy){
-  for(int j=1 ; j<gx-1 ; j++){
-    for(int i=1 ; i<gy-1 ; i++){
-      ez[i][j] = cez[i][j] * ez[i][j] + cezlx[i][j] *(hy[i][j]-hy[i-1][j]) - cezly[i][j] * (hx[i][j] - hx[i][j-1]);
+void CPU_EZ(float *ez, float *cez, float *cezlx, float *hy, float *cezly, float *hx, int gx, int gy){
+  for(int j=1 ; j<gy-1 ; j++){
+    for(int i=1 ; i<gx-1 ; i++){
+      int index = j * gy + i;
+      ez[index] = cez[index] * ez[index] + cezlx[index] *(hy[index]-hy[index-1]) - cezly[index] * (hx[index] - hx[index-gx]);
     }
   }
 }
 
-void CPU_HX(float **hx, float **chxly, float **ez, int gx, int gy){
-  for(int j=0 ; j<gx-1 ; j++){
-    for(int i=1 ; i<gy-1 ; i++){
-      hx[i][j] = hx[i][j] - (chxly[i][j]*(ez[i][j+1]-ez[i][j]));
+void CPU_HX(float *hx, float *chxly, float *ez, int gx, int gy){
+  for(int j=0 ; j<gy-1 ; j++){
+    for(int i=1 ; i<gx-1 ; i++){
+      int index = j * gx + i;
+      hx[index] = hx[index] - (chxly[index]*(ez[index+gx]-ez[index]));
     }
   }
 }
 
-void CPU_HY(float **hy, float **chylx, float **ez, int gx, int gy){
-  for(int j = 1; j<gx-1 ; j++){
-    for(int i=0 ; i<gy-1 ; i++){
-      hy[i][j]=hy[i][j]+(chylx[i][j]*(ez[i+1][j]-ez[i][j]));
+void CPU_HY(float *hy, float *chylx, float *ez, int gx, int gy){
+  for(int j = 1; j<gy-1 ; j++){
+    for(int i=0 ; i<gx-1 ; i++){
+      int index = j * gx + i;
+      hy[index]=hy[index]+(chylx[index]*(ez[index+1]-ez[index]));
     }
   }
 }
@@ -644,10 +658,10 @@ float Compare(float x, float a, float b)
   return x;
 }
 
-void FDTD2dTM(float **_Ez, float **_Hx, float **_Hy,
-              float **_CEZ, float **_CEZLX, float **_CEZLY, float **_CHXLY, float **_CHYLX,
-              float **_CEZX, float **_CEZXL, float **_CHYX, float **_CHYXL, float **_CEZY, float **_CEZYL, float **_CHXY, float **_CHXYL,
-              float **_EZX, float **_EZY, float **_HXY, float **_HYX, 
+void FDTD2dTM(float *_Ez, float *_Hx, float *_Hy,
+              float *_CEZ, float *_CEZLX, float *_CEZLY, float *_CHXLY, float *_CHYLX,
+              float *_CEZX, float *_CEZXL, float *_CHYX, float *_CHYXL, float *_CEZY, float *_CEZYL, float *_CHXY, float *_CHXYL,
+              float *_EZX, float *_EZY, float *_HXY, float *_HYX, 
               float _step, int *_kt, glm::vec2 _GRID_SIZE, float *_T,
               int _power_x, int _power_y, float *_Ez_max, float *_Ez_min,
               GLubyte *_h_g_data, float _rectD, float _L,
@@ -684,7 +698,7 @@ void FDTD2dTM(float **_Ez, float **_Hx, float **_Hy,
   /***create graphic data***/
   CPU_Create_Data( _h_g_data, _Ez, (int)_GRID_SIZE.x, (int)_GRID_SIZE.y, _Ez_yellow, _Ez_green, _Ez_lightblue, _Ez_max, _Ez_min);
 
-  Blank_Wall( _Ez, (int)_GRID_SIZE.x, (int)_GRID_SIZE.y, _rectD, _h_g_data);
+  // Blank_Wall( _Ez, (int)_GRID_SIZE.x, (int)_GRID_SIZE.y, _rectD, _h_g_data);
 
   // if(sampling_pick==true)
   // {
@@ -768,16 +782,17 @@ void PMLInit()
   //PML init
   for(int i=0;i<(int)GRID_SIZE.y;i++){
     for(int j=0;j<(int)GRID_SIZE.x;j++){
-      Z = (ECX[i] * delta_t)/(2.0*epsilon_M[i][j]);
-      CEZX[i][j]=(1-Z)/(1+Z);
-      CEZXL[i][j]=(delta_t/epsilon_M[i][j])/(1+Z)*(1.0/delta_x);
-      CHYX[i][j]=(1-Z)/(1+Z);
-      CHYXL[i][j]=(delta_t/mu_M[i][j])*(1.0/delta_x);
-      Z = (ECY[j]*delta_t)/(2.0*epsilon_M[i][j]);
-      CEZY[i][j]=(1-Z)/(1+Z);
-      CEZYL[i][j]=(delta_t/epsilon_M[i][j])/(1+Z)*(1.0/delta_y);
-      CHXY[i][j]=(1-Z)/(1+Z);
-      CHXYL[i][j]=(delta_t/mu_M[i][j])*(1.0/delta_y);
+      int ind = i * (int)GRID_SIZE.y + j;
+      Z = (ECX[i] * delta_t)/(2.0*epsilon_M[ind]);
+      CEZX[ind]=(1-Z)/(1+Z);
+      CEZXL[ind]=(delta_t/epsilon_M[ind])/(1+Z)*(1.0/delta_x);
+      CHYX[ind]=(1-Z)/(1+Z);
+      CHYXL[ind]=(delta_t/mu_M[ind])*(1.0/delta_x);
+      Z = (ECY[j]*delta_t)/(2.0*epsilon_M[ind]);
+      CEZY[ind]=(1-Z)/(1+Z);
+      CEZYL[ind]=(delta_t/epsilon_M[ind])/(1+Z)*(1.0/delta_y);
+      CHXY[ind]=(1-Z)/(1+Z);
+      CHXYL[ind]=(delta_t/mu_M[ind])*(1.0/delta_y);
     }
   }
 }
@@ -792,9 +807,10 @@ void FDTDInit()
   float ZZ;
   for(int j = 0; j<(int)GRID_SIZE.y; j++){
     for(int i = 0; i<(int)GRID_SIZE.x; i++){
-      mu_M[i][j]  =  mu0;
-      epsilon_M[i][j] = epsilon0;
-      sigma_M[i][j] = sigma0;
+      int ind = j * (int)GRID_SIZE.y + i;
+      mu_M[ind]  =  mu0;
+      epsilon_M[ind] = epsilon0;
+      sigma_M[ind] = sigma0;
     }
   }
 
@@ -808,12 +824,13 @@ void FDTDInit()
   //FDTD init
   for(int i=0;i<(int)GRID_SIZE.x;i++){
     for(int j=0;j<(int)GRID_SIZE.y;j++){
-      ZZ = (sigma_M[i][j] * delta_t)/(2.0*epsilon_M[i][j]);
-      CEZ[i][j]=(1-ZZ)/(1+ZZ);
-      CEZLX[i][j]=(delta_t/epsilon_M[i][j])/(1+ZZ)*(1.0/delta_x);
-      CEZLY[i][j]=(delta_t/epsilon_M[i][j])/(1+ZZ)*(1.0/delta_y);
-      CHXLY[i][j]=delta_t/mu_M[i][j]*(1.0/delta_y);
-      CHYLX[i][j]=delta_t/mu_M[i][j]*(1.0/delta_x);
+      int ind = i* (int)GRID_SIZE.y + j;
+      ZZ = (sigma_M[ind] * delta_t)/(2.0*epsilon_M[ind]);
+      CEZ[ind]=(1-ZZ)/(1+ZZ);
+      CEZLX[ind]=(delta_t/epsilon_M[ind])/(1+ZZ)*(1.0/delta_x);
+      CEZLY[ind]=(delta_t/epsilon_M[ind])/(1+ZZ)*(1.0/delta_y);
+      CHXLY[ind]=delta_t/mu_M[ind]*(1.0/delta_y);
+      CHYLX[ind]=delta_t/mu_M[ind]*(1.0/delta_x);
     }
   }
 }
@@ -866,126 +883,67 @@ void ParamInit()
 
 }
 
-void AllocInit()
+void AllocInit(int gx, int gy)
 {
-  Ez  =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  Hx  =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  Hy  =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
+  Ez  =  (float *)malloc(sizeof(float) * gx * gy);
+  Hx  =  (float *)malloc(sizeof(float) * gx * gy);
+  Hy  =  (float *)malloc(sizeof(float) * gx * gy);
+  memset(Ez, 0, sizeof(float)* gx * gy);
+  memset(Hx, 0, sizeof(float)* gx * gy);
+  memset(Hy, 0, sizeof(float)* gx * gy);
 
-  sigma_M  =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  epsilon_M =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  mu_M    =  (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
+  sigma_M   =  (float *)malloc(sizeof(float) * gx * gy);
+  epsilon_M =  (float *)malloc(sizeof(float) * gx * gy);
+  mu_M      =  (float *)malloc(sizeof(float) * gx * gy);
+  memset(sigma_M, 0, sizeof(float)* gx * gy);
+  memset(epsilon_M, 0, sizeof(float)* gx * gy);
+  memset(mu_M, 0, sizeof(float)* gx * gy);
 
-  ECX = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-  memset(ECX, 0, sizeof(float)*(int)GRID_SIZE.x);
-  ECY = (float *)malloc(sizeof(float) * (int)GRID_SIZE.y);
-  memset(ECY, 0, sizeof(float)*(int)GRID_SIZE.x);
+  ECX = (float *)malloc(sizeof(float) * gx);
+  ECY = (float *)malloc(sizeof(float) * gy);
+  memset(ECX, 0, sizeof(float)*gx);
+  memset(ECY, 0, sizeof(float)*gy);
 
-  CEZX  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CEZXL = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CHYX  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CHYXL = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CEZY  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CEZYL = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CHXY  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CHXYL = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
+  CEZX  = (float *)malloc(sizeof(float) * gx * gy);
+  CEZXL = (float *)malloc(sizeof(float) * gx * gy);
+  CHYX  = (float *)malloc(sizeof(float) * gx * gy);
+  CHYXL = (float *)malloc(sizeof(float) * gx * gy);
+  CEZY  = (float *)malloc(sizeof(float) * gx * gy);
+  CEZYL = (float *)malloc(sizeof(float) * gx * gy);
+  CHXY  = (float *)malloc(sizeof(float) * gx * gy);
+  CHXYL = (float *)malloc(sizeof(float) * gx * gy);
+  memset(CEZX, 0, sizeof(float)* gx * gy);
+  memset(CEZXL, 0, sizeof(float)* gx * gy);
+  memset(CHYX, 0, sizeof(float)* gx * gy);
+  memset(CHYXL, 0, sizeof(float)* gx * gy);
+  memset(CEZY, 0, sizeof(float)* gx * gy);
+  memset(CEZYL, 0, sizeof(float)* gx * gy);
+  memset(CHXY, 0, sizeof(float)* gx * gy);
+  memset(CHXYL, 0, sizeof(float)* gx * gy);
 
-  EZX = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  EZY  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  HXY = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  HYX = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
+  EZX = (float *)malloc(sizeof(float) * gx * gy);
+  EZY = (float *)malloc(sizeof(float) * gx * gy);
+  HXY = (float *)malloc(sizeof(float) * gx * gy);
+  HYX = (float *)malloc(sizeof(float) * gx * gy);
+  memset(EZX, 0, sizeof(float)* gx * gy);
+  memset(EZY, 0, sizeof(float)* gx * gy);
+  memset(HXY, 0, sizeof(float)* gx * gy);
+  memset(HYX, 0, sizeof(float)* gx * gy);
 
-
-  CEZ  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CEZLX = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CEZLY  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CHXLY = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-  CHYLX  = (float **)malloc(sizeof(float*) * (int)GRID_SIZE.y);
-
-  for(int i=0;i<(int)GRID_SIZE.y;i++){
-    Ez[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(Ez[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    Hx[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(Hx[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    Hy[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(Hy[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    sigma_M[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(sigma_M[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    epsilon_M[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(epsilon_M[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    mu_M[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(mu_M[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-
-    CEZX[i]  = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CEZX[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CEZXL[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CEZXL[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CHYX[i]  = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CHYX[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CHYXL[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CHYXL[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CEZY[i]  = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CEZY[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CEZYL[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CEZYL[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CHXY[i]  = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CHXY[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CHXYL[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CHXYL[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-
-    EZX[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(EZX[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    EZY[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(EZY[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    HXY[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(HXY[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    HYX[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(HYX[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-
-    CEZ[i] =  (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CEZ[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CEZLX[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CEZLX[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CEZLY[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CEZLY[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CHXLY[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CHXLY[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-    CHYLX[i] = (float *)malloc(sizeof(float) * (int)GRID_SIZE.x);
-    memset(CHYLX[i], 0, sizeof(float)*(int)GRID_SIZE.x);
-  }
+  CEZ   = (float *)malloc(sizeof(float) * gx * gy);
+  CEZLX = (float *)malloc(sizeof(float) * gx * gy);
+  CEZLY = (float *)malloc(sizeof(float) * gx * gy);
+  CHXLY = (float *)malloc(sizeof(float) * gx * gy);
+  CHYLX = (float *)malloc(sizeof(float) * gx * gy);
+  memset(CEZ, 0, sizeof(float)* gx * gy);
+  memset(CEZLX, 0, sizeof(float)* gx * gy);
+  memset(CEZLY, 0, sizeof(float)* gx * gy);
+  memset(CHXLY, 0, sizeof(float)* gx * gy);
+  memset(CHYLX, 0, sizeof(float)* gx * gy);
 
 }
 void AllocFree()
 {
-  for(int i=0;i<(int)GRID_SIZE.y;i++)
-  {
-    free(Ez[i]);
-    free(Hx[i]);
-
-    free(sigma_M[i]);
-    free(epsilon_M[i]);
-    free(mu_M[i]);
-
-    free(CEZX[i]);
-    free(CEZXL[i]);
-    free(CHYX[i]);
-    free(CHYXL[i]);
-    free(CEZY[i]);
-    free(CEZYL[i]);
-    free(CHXY[i]);
-    free(CHXYL[i]);
-
-    free(EZX[i]);
-    free(EZY[i]);
-    free(HXY[i]);
-    free(HYX[i]);
-
-    free(CEZ[i]);
-    free(CEZLX[i]);
-    free(CEZLY[i]);
-    free(CHXLY[i]);
-    free(CHYLX[i]);
-  }
   free(Ez);
   free(Hx);
   free(Hy);
@@ -1090,7 +1048,8 @@ void AppMain()
 
   LoadShaders();
 
-  AllocInit();
+  AllocInit((int)GRID_SIZE.x, (int)GRID_SIZE.y);
+
   atexit(AllocFree);
 
   ParamInit();
