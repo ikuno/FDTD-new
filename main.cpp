@@ -300,7 +300,7 @@ void CPU_PML_HY(float *hyx, float *chyx, float *chyxl, float *ez, float *hy, int
   for(int j=1 ; j<gy-1 ; j++){
     for(int i=0 ; i<gx-1 ; i++){
       int index = j * gx + i;
-      if(i<l || i>gy-l-1 || j<l || j>gx-l-1){
+      if(i<l || i>gx-l-1 || j<l || j>gy-l-1){
         hyx[index] = chyx[index] * hyx[index] + chyxl[index] * (ez[index+1]-ez[index]);
         hy[index] = hyx[index];
       }
@@ -313,7 +313,7 @@ void CPU_PML_HX(float *hxy, float *chxy, float *chxyl, float *ez, float *hx, int
   for(int j=0 ; j<gy-1 ; j++){
     for(int i=1 ; i<gx-1 ; i++){
       int index = j * gx + i;
-      if(i<l || i>gy-l-1 || j<l || j>gx-l-1){
+      if(i<l || i>gx-l-1 || j<l || j>gy-l-1){
         hxy[index] = chxy[index] * hxy[index] - chxyl[index] * (ez[index+gx]-ez[index]);
         hx[index] = hxy[index];
       }
@@ -325,7 +325,7 @@ void CPU_PML_EZ(float *ezx, float *cezx, float *cezxl, float *hy, float *ezy, fl
   for(int j=1 ; j<gy-1 ; j++){
     for(int i=1 ; i<gx-1 ; i++){
       int index = j * gx + i;
-      if(i<l || (i>gy-l-1) || j<l || (j>gx-l-1)){
+      if(i<l || (i>gx-l-1) || j<l || (j>gy-l-1)){
         ezx[index] = cezx[index] * ezx[index] + cezxl[index] * (hy[index] - hy[index-1]);
         ezy[index] = cezy[index] * ezy[index] - cezyl[index] * (hx[index] - hx[index-gx]);
         ez[index] = ezx[index] + ezy[index];
@@ -337,7 +337,7 @@ void CPU_PML_EZ(float *ezx, float *cezx, float *cezxl, float *hy, float *ezy, fl
 void CPU_EZ(float *ez, float *cez, float *cezlx, float *hy, float *cezly, float *hx, int gx, int gy){
   for(int j=1 ; j<gy-1 ; j++){
     for(int i=1 ; i<gx-1 ; i++){
-      int index = j * gy + i;
+      int index = j * gx + i;
       ez[index] = cez[index] * ez[index] + cezlx[index] *(hy[index]-hy[index-1]) - cezly[index] * (hx[index] - hx[index-gx]);
     }
   }
@@ -698,7 +698,7 @@ void FDTD2dTM(float *_Ez, float *_Hx, float *_Hy,
   /***create graphic data***/
   CPU_Create_Data( _h_g_data, _Ez, (int)_GRID_SIZE.x, (int)_GRID_SIZE.y, _Ez_yellow, _Ez_green, _Ez_lightblue, _Ez_max, _Ez_min);
 
-  // Blank_Wall( _Ez, (int)_GRID_SIZE.x, (int)_GRID_SIZE.y, _rectD, _h_g_data);
+  Blank_Wall( _Ez, (int)_GRID_SIZE.x, (int)_GRID_SIZE.y, _rectD, _h_g_data);
 
   // if(sampling_pick==true)
   // {
@@ -780,9 +780,9 @@ void PMLInit()
   float Z;
 
   //PML init
-  for(int i=0;i<(int)GRID_SIZE.y;i++){
-    for(int j=0;j<(int)GRID_SIZE.x;j++){
-      int ind = i * (int)GRID_SIZE.y + j;
+  for(int i=0;i<(int)GRID_SIZE.x;i++){
+    for(int j=0;j<(int)GRID_SIZE.y;j++){
+      int ind = j * (int)GRID_SIZE.x + i;
       Z = (ECX[i] * delta_t)/(2.0*epsilon_M[ind]);
       CEZX[ind]=(1-Z)/(1+Z);
       CEZXL[ind]=(delta_t/epsilon_M[ind])/(1+Z)*(1.0/delta_x);
@@ -807,7 +807,7 @@ void FDTDInit()
   float ZZ;
   for(int j = 0; j<(int)GRID_SIZE.y; j++){
     for(int i = 0; i<(int)GRID_SIZE.x; i++){
-      int ind = j * (int)GRID_SIZE.y + i;
+      int ind = j * (int)GRID_SIZE.x + i;
       mu_M[ind]  =  mu0;
       epsilon_M[ind] = epsilon0;
       sigma_M[ind] = sigma0;
@@ -824,7 +824,7 @@ void FDTDInit()
   //FDTD init
   for(int i=0;i<(int)GRID_SIZE.x;i++){
     for(int j=0;j<(int)GRID_SIZE.y;j++){
-      int ind = i* (int)GRID_SIZE.y + j;
+      int ind = j* (int)GRID_SIZE.x + i;
       ZZ = (sigma_M[ind] * delta_t)/(2.0*epsilon_M[ind]);
       CEZ[ind]=(1-ZZ)/(1+ZZ);
       CEZLX[ind]=(delta_t/epsilon_M[ind])/(1+ZZ)*(1.0/delta_x);
