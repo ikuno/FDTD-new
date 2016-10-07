@@ -12,6 +12,7 @@
 
 #include "Program.h"
 #include "Camera.h"
+#include "Cuda_wapper.h"
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -33,9 +34,6 @@ const glm::vec2 SCREEN_SIZE(1080, 1080);
 const glm::vec2 WINDOW_POS(128, 128);
 const glm::vec2 GRID_SIZE(256, 256);
 
-//texture
-GLuint tex;
-GLubyte *h_g_data;
 
 //window
 GLFWwindow *gWindow = NULL;
@@ -45,7 +43,14 @@ tdogl::Camera gCamera;
 
 GLuint gVAO = 0;
 GLuint gVBO = 0;
+GLuint gPBO = 0;
+GLuint tex = 0;
+GLubyte *h_g_data;
+GLubyte *d_g_data;
+struct cudaGraphicsResource *pbo_res;
+
 float gScrollY = 0.0;
+
 
 /****************
  *   parameter   *
@@ -82,10 +87,10 @@ float *CEZX, *CEZXL, *CHYX, *CHYXL, *CEZY, *CEZYL, *CHXY, *CHXYL;
 float *EZX, *EZY, *HXY, *HYX;
 float *CEZ, *CEZLX, *CEZLY, *CHXLY, *CHYLX;
 
-// float *d_Ez, *d_Hx, *d_Hy;
-// float *d_CEZX, *d_CEZXL, *d_CHYX, *d_CHYXL, *d_CEZY, *d_CEZYL, *d_CHXY, *d_CHXYL;
-// float *d_EZX, *d_EZY, *d_HXY, *d_HYX;
-// float *d_CEZ, *d_CEZLX, *d_CEZLY, *d_CHXLY, *d_CHYLX;
+float *d_Ez, *d_Hx, *d_Hy;
+float *d_CEZX, *d_CEZXL, *d_CHYX, *d_CHYXL, *d_CEZY, *d_CEZYL, *d_CHXY, *d_CHXYL;
+float *d_EZX, *d_EZY, *d_HXY, *d_HYX;
+float *d_CEZ, *d_CEZLX, *d_CEZLY, *d_CHXLY, *d_CHYLX;
 
 
 // counter
@@ -168,6 +173,12 @@ void FDTD2dTM(float *_Ez, float *_Hx, float *_Hy,
               GLubyte *_h_g_data, float _rectD, float _L,
               float _Ez_yellow, float _Ez_green, float _Ez_lightblue,
               float _delta_t);
+
+
+
+
+
+
 
 void Blank_Wall(float *ez, int gx, int gy, int R, GLubyte *data){
   //blank
@@ -741,6 +752,22 @@ void RunCPUKernel()
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GRID_SIZE.x, GRID_SIZE.y, GL_RGB, GL_UNSIGNED_BYTE, h_g_data);
 }
 
+void RunGPUKernel(void){
+  CUDA_kernel_befor(d_g_data, &gPBO, &tex, &pbo_res);
+
+  if(flag==true){
+    LaunchGPUKernel(d_g_data, d_Ez, d_Hx, d_Hy, d_CEZX, d_CEZXL, d_CEZY, d_CEZYL, d_EZX, d_EZY, d_CEZ, d_CEZLX, d_CEZLY, d_CHYX, d_CHYXL, d_CHXY, d_CHXYL, d_HXY, d_HYX, d_CHXLY, d_CHYLX, T, L, power_x, power_y, (int)GRID_SIZE.x, (int)GRID_SIZE.y, Ez_yellow, Ez_green, Ez_lightblue, Ez_max, Ez_min, step);
+  }
+
+  CUDA_kernel_after(&pbo_res);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBO);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (int)GRID_SIZE.x, (int)GRID_SIZE.y, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+  
+  delta_t++;
+}
+
 void DeleteTexture(int index, GLuint *tex)
 {
   glDeleteTextures(index, tex);
@@ -755,7 +782,7 @@ void CreateTexture(int index, GLuint *tex)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, GRID_SIZE.x, GRID_SIZE.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, GRID_SIZE.x, GRID_SIZE.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 }
 
 void TextureInit()
@@ -763,7 +790,7 @@ void TextureInit()
   glClearColor(135.0f/255.0f, 206.0f/255.0f, 250.0f/255.0f, 1.0f);
   glEnable(GL_TEXTURE_2D);
 
-  h_g_data = (GLubyte *)malloc(sizeof(GLubyte) * GRID_SIZE.x * GRID_SIZE.y * 3);
+  h_g_data = (GLubyte *)malloc(sizeof(GLubyte) * (int)GRID_SIZE.x * (int)GRID_SIZE.y * 3);
 
   for(int i=0; i<GRID_SIZE.x; i++)
     for(int j=0; j<GRID_SIZE.y; j++)
@@ -1011,6 +1038,7 @@ void LoadTriangle()
   glVertexAttribPointer(gProgram->attrib("vertTexCoord"), 2, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (const GLvoid*)(3 * sizeof(GLfloat)));
 
 
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 }
 
@@ -1049,8 +1077,12 @@ void AppMain()
   LoadShaders();
 
   AllocInit((int)GRID_SIZE.x, (int)GRID_SIZE.y);
-
   atexit(AllocFree);
+
+  GPU_AllocInit(d_Ez, d_Hx, d_Hy,
+                d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL,
+                d_EZX, d_EZY, d_HXY, d_HYX, 
+                d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX, (int)GRID_SIZE.x, (int)GRID_SIZE.y);
 
   ParamInit();
 
@@ -1061,6 +1093,13 @@ void AppMain()
   PrintInfo();
 
   TextureInit();
+
+//GPU
+  glGenBuffers(1, &gPBO);
+  glBindBuffer(GL_ARRAY_BUFFER, gPBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLubyte)*(int)GRID_SIZE.x*(int)GRID_SIZE.y*3, NULL, GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  InitPBO(&gPBO, &pbo_res);
 
   CreateTexture(1, &tex);
 
@@ -1088,7 +1127,8 @@ void AppMain()
 
     nk_glfw3_new_frame();
 
-    RunCPUKernel();
+    // RunCPUKernel();
+    RunGPUKernel();
 
     Render();
 
@@ -1107,6 +1147,13 @@ void AppMain()
 
     if(glfwGetKey(gWindow, GLFW_KEY_ESCAPE))
     {
+      //GPU
+      GPU_Free(d_Ez, d_Hx, d_Hy,
+          d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL,
+          d_EZX, d_EZY, d_HXY, d_HYX, 
+          d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX);
+      CUDA_END(&pbo_res, d_g_data);
+
       free(h_g_data);
       DeleteTexture(1, &tex);
       glfwSetWindowShouldClose(gWindow, GL_TRUE);
