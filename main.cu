@@ -18,6 +18,22 @@
 #define BLOCKDIM_X 16
 #define BLOCKDIM_Y 16
 
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_IMPLEMENTATION
+#define NK_GLFW_GL3_IMPLEMENTATION
+#include "./nuklear/nuklear.h"
+#include "./nuklear/nuklear_glfw_gl3.h"
+
+#define MAX_VERTEX_BUFFER 512 * 1024
+#define MAX_ELEMENT_BUFFER 128 * 1024
+
+struct nk_context *ctx;
+
 /****************
  *   parameter   *
  ****************/
@@ -94,11 +110,12 @@ struct cudaGraphicsResource *pbo_res;
 
 
 
+
 void free_data(void);
 
 void malloc_Initialdata(void);
 
-void setInitialDensity(unsigned int width, unsigned int height);
+void setInitialData(unsigned int width, unsigned int height);
 
 void launchCPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y);
 
@@ -146,10 +163,129 @@ void OnClick(GLFWwindow *window, int button, int action, int mods);
 
 void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r);
 
+void GUIRender(struct nk_context *ctx, int x, int y);
 
 
 
 
+void GUIRender(struct nk_context *ctx, int x, int y)
+{
+  struct nk_panel layout;
+  struct nk_rect bounds;
+  const struct nk_input *in = &ctx->input;
+  if (nk_begin(ctx, &layout, "Tools", nk_rect(50, 50, 300, 400),
+        NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
+        NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
+  {
+    nk_layout_row_dynamic(ctx, 30, 2);
+    bounds = nk_widget_bounds(ctx);
+    if(nk_button_label(ctx, "Start/Stop"))
+    {
+      flag=!flag;
+    }
+    if(nk_button_label(ctx, "Restart"))
+    {
+      flag=false;
+      kt=1;
+      T=0.0;
+      setInitialData(x, y);
+      CameraInit();
+      gCamera.setFieldOfView(50.0);
+    }
+    nk_layout_row_dynamic(ctx, 20, 2);
+    nk_value_float_e(ctx, "Ez_Max", Ez_max);
+    nk_value_float_e(ctx, "Ez_Min", Ez_min);
+
+    if (nk_input_is_mouse_hovering_rect(in, bounds))
+    {
+      const struct nk_style *style;
+      struct nk_panel layout;
+
+      style=&ctx->style;
+
+      if(nk_tooltip_begin(ctx, &layout, 130))
+      {
+        nk_layout_row_dynamic(ctx, style->font.height, 1);
+        nk_text(ctx, "K -> MoveUp", 11, NK_TEXT_LEFT);
+        nk_layout_row_dynamic(ctx, style->font.height, 1);
+        nk_text(ctx, "J -> MoveDown", 13, NK_TEXT_LEFT);
+        nk_layout_row_dynamic(ctx, style->font.height, 1);
+        nk_text(ctx, "H -> MoveLeft", 13, NK_TEXT_LEFT);
+        nk_layout_row_dynamic(ctx, style->font.height, 1);
+        nk_text(ctx, "L -> MoveRight", 14, NK_TEXT_LEFT);
+        nk_layout_row_dynamic(ctx, style->font.height, 1);
+        nk_text(ctx, "Z -> ZoomIn", 11, NK_TEXT_LEFT);
+        nk_layout_row_dynamic(ctx, style->font.height, 1);
+        nk_text(ctx, "X -> ZoomOut", 12, NK_TEXT_LEFT);
+        nk_layout_row_dynamic(ctx, style->font.height, 1);
+        nk_text(ctx, "C -> ResetCamera", 16, NK_TEXT_LEFT);
+        nk_tooltip_end(ctx);
+      }
+    }
+
+
+    /* if (nk_tree_push(ctx, NK_TREE_NODE, "Sampling", NK_MINIMIZED)) */
+    /* { */
+    /*   int i; */
+    /*   static int onoff=nk_false; */
+    /*   static int pick=nk_false; */
+    /*   nk_layout_row_dynamic(ctx, 20, 4); */
+    /*   nk_checkbox_label(ctx, "On/Off", &onoff); */
+    /*   nk_selectable_label(ctx, "Pick", NK_TEXT_LEFT, &pick); */
+    /*   nk_value_int(ctx, "x", sampling[0]); */
+    /*   nk_value_int(ctx, "y", ftoi(GRID_SIZE.y)-sampling[1]); */
+    /*   if(onoff==nk_false) */
+    /*     sampling_flag=false; */
+    /*   else */
+    /*     sampling_flag=true; */
+    /*  */
+    /*   if(pick==nk_false) */
+    /*     sampling_pick=false; */
+    /*   else */
+    /*     sampling_pick=true; */
+    /*  */
+    /*   nk_layout_row_dynamic(ctx, 60, 1); */
+    /*  */
+    /*   if(nk_chart_begin(ctx, NK_CHART_LINES, 100, Ez_min, Ez_max)) */
+    /*   { */
+    /*     for(i=0;i<100;i++) */
+    /*     { */
+    /*       nk_chart_push(ctx, sampling_list[i]); */
+    /*     } */
+    /*     nk_chart_end(ctx); */
+    /*   } */
+    /*  */
+    /*   nk_tree_pop(ctx); */
+    /* } */
+
+    if(nk_tree_push(ctx, NK_TREE_NODE, "Shape", NK_MINIMIZED))
+    {
+      nk_layout_row_begin(ctx, NK_STATIC, 20, 3);
+      nk_layout_row_push(ctx, 20);
+      nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
+      if(nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_LEFT)){
+        wall_r-=1;
+        if(wall_r<=0){
+          wall_r=0;
+        }
+      }
+
+      nk_layout_row_push(ctx, 100);
+      nk_value_float(ctx, "Width", wall_r);
+
+      nk_layout_row_push(ctx, 20);
+      nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
+      if(nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_RIGHT)){
+        wall_r+=1;
+      }
+      nk_layout_row_end(ctx);
+      nk_tree_pop(ctx);
+    }
+
+  }
+  nk_end(ctx);
+
+}
 
 
 void OnClick(GLFWwindow *window, int button, int action, int mods)
@@ -207,6 +343,17 @@ void Update(float secondsElapsed)
     CameraInit();
     gCamera.setFieldOfView(50.0);
     flag=true;
+  }
+
+
+  if(glfwGetKey(gWindow, GLFW_KEY_O))
+  {
+    wall_r-=1;
+  }
+
+  if(glfwGetKey(gWindow, GLFW_KEY_P))
+  {
+    wall_r+=1;
   }
 
   //mouse
@@ -847,8 +994,9 @@ void RunGPUKernel(void){
   cudaGraphicsMapResources(1, &pbo_res, 0);
   cudaGraphicsResourceGetMappedPointer((void**)&d_g_data, NULL, pbo_res);
 
-	launchGPUKernel(d_g_data, d_Ez, d_Hx, d_Hy, d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL, d_EZX, d_EZY, d_HXY, d_HYX, d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
-
+  if(!flag){
+    launchGPUKernel(d_g_data, d_Ez, d_Hx, d_Hy, d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL, d_EZX, d_EZY, d_HXY, d_HYX, d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
+  }
   kt++;
 
   cudaGraphicsUnmapResources(1, &pbo_res, 0);
@@ -860,7 +1008,9 @@ void RunGPUKernel(void){
 
 void RunCPUKernel(void){
 
-  launchCPUKernel(h_g_data, h_Ez, h_Hx, h_Hy, h_CEZX, h_CEZXL, h_CHYX, h_CHYXL, h_CEZY, h_CEZYL, h_CHXY, h_CHXYL, h_EZX, h_EZY, h_HXY, h_HYX, h_CEZ, h_CEZLX, h_CEZLY, h_CHXLY, h_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y);
+  if(!flag){
+    launchCPUKernel(h_g_data, h_Ez, h_Hx, h_Hy, h_CEZX, h_CEZXL, h_CHYX, h_CHYXL, h_CEZY, h_CEZYL, h_CHXY, h_CHXYL, h_EZX, h_EZY, h_HXY, h_HYX, h_CEZ, h_CEZLX, h_CEZLY, h_CHXLY, h_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y);
+  }
 
 
   kt++;
@@ -966,8 +1116,6 @@ void Render() {
   // unbind the program
   glUseProgram(0);
 
-  // swap the display buffers (displays what was just drawn)
-  glfwSwapBuffers(gWindow);
 }
 
 void OnError(int errorCode, const char* msg) {
@@ -1035,12 +1183,21 @@ void AppMain() {
 
   MouseInit();
 
+  ctx = nk_glfw3_init(gWindow, NK_GLFW3_INSTALL_CALLBACKS);
+  {
+    struct nk_font_atlas *atlas;
+    nk_glfw3_font_stash_begin(&atlas);
+    nk_glfw3_font_stash_end();
+  }
+
 
   float lastTime = glfwGetTime();
   // run while the window is open
   while(!glfwWindowShouldClose(gWindow)){
     // process pending events
     glfwPollEvents();
+
+    nk_glfw3_new_frame();
 
     /* RunCPUKernel(); */
     RunGPUKernel();
@@ -1052,6 +1209,15 @@ void AppMain() {
     float thisTime = glfwGetTime();
     Update((float)(thisTime - lastTime));
 
+    
+    GUIRender(ctx, GRID_X, GRID_Y);
+    nk_glfw3_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
+
+
+    // swap the display buffers (displays what was just drawn)
+    glfwSwapBuffers(gWindow);
+
+    
     if(glfwGetKey(gWindow, GLFW_KEY_ESCAPE)){
       free_data();
       glDeleteTextures(1, &gTEX);
@@ -1065,6 +1231,7 @@ void AppMain() {
 
   }
   // clean up and exit
+  nk_glfw3_shutdown();
   glfwTerminate();
 }
 
