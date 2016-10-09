@@ -11,9 +11,11 @@
 
 #include "Program.h"
 #include "Camera.h"
+#include "cmdline.h"
 
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
+
 
 #define BLOCKDIM_X 16
 #define BLOCKDIM_Y 16
@@ -33,6 +35,10 @@
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
 struct nk_context *ctx;
+using namespace std;
+
+bool CPU_flag=false;
+bool GPU_flag=false;
 
 /****************
  *   parameter   *
@@ -131,7 +137,7 @@ void LoadTriangle();
 void Render();
 void OnError(int errorCode, const char* msg);
 void AppMain();
-float CalcFPS(GLFWwindow *gWindow, float theTimeInterval = 1.0, std::string theWindowTitle = "NONE");
+float CalcFPS(GLFWwindow *gWindow, float theTimeInterval = 1.0, string theWindowTitle = "NONE");
 void Update(float secondsElapsed);
 void CameraInit();
 void OnScroll(GLFWwindow *window, double deltaX, double deltaY);
@@ -349,7 +355,7 @@ void CameraInit()
 }
 
 
-float CalcFPS(GLFWwindow *gWindow, float theTimeInterval, std::string theWindowTitle)
+float CalcFPS(GLFWwindow *gWindow, float theTimeInterval, string theWindowTitle)
 {
   static float t0Value = glfwGetTime();
   static int fpsFrameCount = 0;
@@ -368,16 +374,16 @@ float CalcFPS(GLFWwindow *gWindow, float theTimeInterval, std::string theWindowT
 
     if(theWindowTitle != "NONE")
     {
-      std::ostringstream stream;
+      ostringstream stream;
       stream << fps;
-      std::string fpsString = stream.str();
+      string fpsString = stream.str();
 
       theWindowTitle += " | FPS: " + fpsString;
 
       const char *pszConstString = theWindowTitle.c_str();
       glfwSetWindowTitle(gWindow, pszConstString);
     }else{
-      std::cout << "FPS: " << fps << std::endl;
+      cout << "FPS: " << fps << endl;
     }
 
     fpsFrameCount = 0;
@@ -1016,7 +1022,7 @@ void InitTexData(){
 }
 
 void LoadShaders(){
-  std::vector<tdogl::Shader::Shader> shaders;
+  vector<tdogl::Shader::Shader> shaders;
   shaders.push_back(tdogl::Shader::shaderFromFile("./vertex-shader.glsl", GL_VERTEX_SHADER));
   shaders.push_back(tdogl::Shader::shaderFromFile("./fragment-shader.glsl", GL_FRAGMENT_SHADER));
   gProgram = new tdogl::Program(shaders);
@@ -1089,7 +1095,7 @@ void Render() {
 }
 
 void OnError(int errorCode, const char* msg) {
-  throw std::runtime_error(msg);
+  throw runtime_error(msg);
 }
 
 // the program starts here
@@ -1097,7 +1103,7 @@ void AppMain() {
   // initialise GLFW
   glfwSetErrorCallback(OnError);
   if(!glfwInit())
-    throw std::runtime_error("glfwInit failed");
+    throw runtime_error("glfwInit failed");
 
   // open a window with GLFW
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -1107,7 +1113,7 @@ void AppMain() {
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
   gWindow = glfwCreateWindow(SIZE_X, SIZE_Y, "Strting...", NULL, NULL);
   if(!gWindow)
-    throw std::runtime_error("glfwCreateWindow failed. Can your hardware handle OpenGL 3.2?");
+    throw runtime_error("glfwCreateWindow failed. Can your hardware handle OpenGL 3.2?");
 
   // GLFW settings
   glfwMakeContextCurrent(gWindow);
@@ -1115,17 +1121,17 @@ void AppMain() {
   // initialise GLEW
   glewExperimental = GL_TRUE; //stops glew crashing on OSX :-/
   if(glewInit() != GLEW_OK)
-    throw std::runtime_error("glewInit failed");
+    throw runtime_error("glewInit failed");
 
   // print out some info about the graphics drivers
-  std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
-  std::cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
-  std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
-  std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+  cout << "OpenGL version: " << glGetString(GL_VERSION) << endl;
+  cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
+  cout << "Vendor: " << glGetString(GL_VENDOR) << endl;
+  cout << "Renderer: " << glGetString(GL_RENDERER) << endl;
 
   // make sure OpenGL version 3.2 API is available
   if(!GLEW_VERSION_3_2)
-    throw std::runtime_error("OpenGL 3.2 API is not available.");
+    throw runtime_error("OpenGL 3.2 API is not available.");
 
 
 
@@ -1169,12 +1175,20 @@ void AppMain() {
 
     nk_glfw3_new_frame();
 
-    RunCPUKernel();
-    /* RunGPUKernel(); */
+    if(GPU_flag){
+      RunGPUKernel();
+    }else{
+      RunCPUKernel();
+    }
+
     // draw one frame
     Render();
 
-    CalcFPS(gWindow, 1.0, "GL3.2 FDTD2D_TM");
+    if(GPU_flag){
+      CalcFPS(gWindow, 1.0, "GPU Render");
+    }else{
+      CalcFPS(gWindow, 1.0, "CPU Render");
+    }
 
     float thisTime = glfwGetTime();
     Update((float)(thisTime - lastTime));
@@ -1206,10 +1220,31 @@ void AppMain() {
 }
 
 int main(int argc, char *argv[]) {
+  cmdline::parser cmd;
+  cmd.add<string>("render", 'r', "Render Device [gpu, cpu]", true, "", cmdline::oneof<string>("gpu", "cpu"));
+  cmd.add("help", 0, "Help Message");
+  cmd.set_program_name("fdtd");
+  bool ok = cmd.parse(argc, argv);
+  if (argc==1 || cmd.exist("help")){
+    cerr<<cmd.usage();
+    return 0;
+  }
+  if (!ok){
+    cerr<<cmd.error()<<endl<<cmd.usage();
+    return 0;
+  }
+  if(cmd.get<string>("render")=="gpu"){
+    GPU_flag=true;
+  }else if(cmd.get<string>("render")=="cpu"){
+    CPU_flag=true;
+  }
+  if(GPU_flag && CPU_flag){
+    cout << "CPU, GPU only one can be use" << endl;
+  }
   try {
     AppMain();
-  } catch (const std::exception& e){
-    std::cerr << "ERROR: " << e.what() << std::endl;
+  } catch (const exception& e){
+    cerr << "ERROR: " << e.what() << endl;
     return EXIT_FAILURE;
   }
 
