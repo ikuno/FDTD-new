@@ -9,12 +9,22 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <omp.h>
+
 #include "Program.h"
 #include "Camera.h"
 #include "cmdline.h"
 
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
+
+int SIZE_X=1080;
+int SIZE_Y=1080;
+
+/* int grid_x=256; */
+/* int grid_y=256; */
+int GRID_X=2160;
+int GRID_Y=2160;
 
 
 #define BLOCKDIM_X 16
@@ -93,13 +103,6 @@ float gScrollY = 0.0;
 
 
 
-int SIZE_X=1080;
-int SIZE_Y=1080;
-
-/* int grid_x=256; */
-/* int grid_y=256; */
-int GRID_X=1080;
-int GRID_Y=1080;
 
 GLFWwindow* gWindow = NULL;
 tdogl::Program* gProgram = NULL;
@@ -127,7 +130,7 @@ float h_clamp(float x, float a, float b);
 __device__ float d_clamp(float x, float a, float b);
 __global__ void d_FDTD2d_tm_H(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CHYX, float *CHYXL, float *CHXY, float *CHXYL, float *HXY, float *HYX, float *CHXLY, float *CHYLX, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue);
 __global__ void d_FDTD2d_tm_E(float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CEZY, float *CEZYL, float *EZX, float *EZY, float *CEZ, float *CEZLX, float *CEZLY, float step, unsigned int t, int L, unsigned int width, unsigned int height, int power_x, int power_y);
-float h_clamp(float x, float a, float b);
+// float h_clamp(float x, float a, float b);
 void RunGPUKernel(void);
 void RunCPUKernel(void);
 void InitPBO(GLuint *pbo, unsigned int size, struct cudaGraphicsResource **pbo_res, unsigned int pbo_res_flags);
@@ -146,6 +149,14 @@ void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r);
 void GUIRender(struct nk_context *ctx, int x, int y);
 
 
+inline float h_clamp(float x, float a, float b)
+{
+  if (x < a)
+    x = a;
+  if (x > b)
+    x = b;
+  return x;
+}
 
 
 void GUIRender(struct nk_context *ctx, int x, int y)
@@ -550,7 +561,7 @@ __global__ void d_FDTD2d_tm_H(GLubyte *g_data, float *Ez, float *Hx, float *Hy, 
     HYX[index]=CHYX[index]*HYX[index]+CHYXL[index]*(Ez[index+1]-Ez[index]);
     Hy[index]=HYX[index];
   }
-  
+
   GPU_PEC(g_data, Ez, width, height, R);
 }
 
@@ -595,81 +606,83 @@ void launchGPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CE
 }
 
 
-float h_clamp(float x, float a, float b)
-{
-  if (x < a)
-    x = a;
-  if (x > b)
-    x = b;
-  return x;
-}
 
 void h_FDTD2d_tm(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y)
 {
-  unsigned int i, j, index;
+  // unsigned int i, j, index;
   float pulse;
   pulse  =  sin((((t - 1)%(int)step)+1)*2.0*M_PI/step);
 
   //Ez
-  for(j = 1; j < height-1; j++){
-    for(i = 1; i < width-1; i++){
-      index = width * j + i;
-      if(i==power_x && j==power_y){
-        Ez[index] = 1.0/376.7 * pulse;
-      }else{
-        Ez[index] = CEZ[index] * Ez[index] + CEZLX[index] * (Hy[index]-Hy[index-1]) - CEZLY[index] * (Hx[index]-Hx[index-width]);
+
+#pragma omp parallel
+  {
+#pragma omp for
+    for(int j = 1; j < height-1; j++){
+      for(int i = 1; i < width-1; i++){
+        int index = width * j + i;
+        if(i==power_x && j==power_y){
+          Ez[index] = 1.0/376.7 * pulse;
+        }else{
+          Ez[index] = CEZ[index] * Ez[index] + CEZLX[index] * (Hy[index]-Hy[index-1]) - CEZLY[index] * (Hx[index]-Hx[index-width]);
+        }
       }
     }
-  }
 
-  /* Ez for PML */
-  for(j = 1; j<height - 1; j++){
-    for(i = 1; i<width - 1; i++){
-      index = width * j + i;
-      if(i<L || (i>width-L-1) || j<L || (j>height-L-1)){
-        EZX[index]=CEZX[index] * EZX[index] + CEZXL[index] * (Hy[index] - Hy[index-1]);
-        EZY[index]=CEZY[index] * EZY[index] - CEZYL[index] * (Hx[index] - Hx[index-width]);
-        Ez[index]=EZX[index]+EZY[index];
+    /* Ez for PML */
+#pragma omp for
+    for(int j = 1; j<height - 1; j++){
+      for(int i = 1; i<width - 1; i++){
+        int index = width * j + i;
+        if(i<L || (i>width-L-1) || j<L || (j>height-L-1)){
+          EZX[index]=CEZX[index] * EZX[index] + CEZXL[index] * (Hy[index] - Hy[index-1]);
+          EZY[index]=CEZY[index] * EZY[index] - CEZYL[index] * (Hx[index] - Hx[index-width]);
+          Ez[index]=EZX[index]+EZY[index];
+        }
       }
     }
-  }
 
-  // T=T+delta_t/2;
+    // T=T+delta_t/2;
 
-  //Hx
-  for(j = 0; j<height - 1; j++){
-    for(i = 1; i<width - 1; i++){
-      index = width * j + i;
-      Hx[index] = Hx[index] - (CHXLY[index]*(Ez[index+width]-Ez[index]));
-    }
-  }
-
-  /* //Hx for PML*/
-  for(j = 0; j<height - 1; j++){
-    for(i = 1; i<width - 1; i++){
-      index = width * j + i;
-      if(i<L || i>width-L-1 || j<L || j>height-L-1){
-        HXY[index]=CHXY[index]*HXY[index]-CHXYL[index]*(Ez[index+width]-Ez[index]);
-        Hx[index]=HXY[index];
+    //Hx
+#pragma omp for
+    for(int j = 0; j<height - 1; j++){
+      for(int i = 1; i<width - 1; i++){
+        int index = width * j + i;
+        Hx[index] = Hx[index] - (CHXLY[index]*(Ez[index+width]-Ez[index]));
       }
     }
-  }
 
-  //Hy
-  for(j = 1; j<height - 1; j++){
-    for(i = 0; i<width - 1; i++){
-      index = width * j + i;
-      Hy[index] = Hy[index] + (CHYLX[index]*(Ez[index+1]-Ez[index]));
+    /* //Hx for PML*/
+#pragma omp for
+    for(int j = 0; j<height - 1; j++){
+      for(int i = 1; i<width - 1; i++){
+        int index = width * j + i;
+        if(i<L || i>width-L-1 || j<L || j>height-L-1){
+          HXY[index]=CHXY[index]*HXY[index]-CHXYL[index]*(Ez[index+width]-Ez[index]);
+          Hx[index]=HXY[index];
+        }
+      }
     }
-  }
 
-  //Hy for PML
-  for(j = 1; j<height - 1; j++){
-    for(i = 0; i<width - 1; i++){
-      index = width * j + i;
-      if(i<L || i>width-L-1 || j<L || j>height-L-1){
-        HYX[index]=CHYX[index]*HYX[index]+CHYXL[index]*(Ez[index+1]-Ez[index]);
-        Hy[index]=HYX[index];
+    //Hy
+#pragma omp for
+    for(int j = 1; j<height - 1; j++){
+      for(int i = 0; i<width - 1; i++){
+        int index = width * j + i;
+        Hy[index] = Hy[index] + (CHYLX[index]*(Ez[index+1]-Ez[index]));
+      }
+    }
+
+    //Hy for PML
+#pragma omp for
+    for(int j = 1; j<height - 1; j++){
+      for(int i = 0; i<width - 1; i++){
+        int index = width * j + i;
+        if(i<L || i>width-L-1 || j<L || j>height-L-1){
+          HYX[index]=CHYX[index]*HYX[index]+CHYXL[index]*(Ez[index+1]-Ez[index]);
+          Hy[index]=HYX[index];
+        }
       }
     }
   }
@@ -681,9 +694,9 @@ void h_FDTD2d_tm(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, 
 
   /***create graphic data***/
   float v;
-  for(j=0; j<height; j++){
-    for(i=0; i<width; i++){
-      index = width * j + i;
+  for(int j=0; j<height; j++){
+    for(int i=0; i<width; i++){
+      int index = width * j + i;
       v = Ez[index];
       v = h_clamp(v, min, max);
 
