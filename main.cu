@@ -112,57 +112,31 @@ struct cudaGraphicsResource *pbo_res;
 
 
 void free_data(void);
-
 void malloc_Initialdata(void);
-
 void setInitialData(unsigned int width, unsigned int height);
-
 void launchCPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y);
-
 void launchGPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y, int R);
-
 void h_FDTD2d_tm(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y);
-
 float h_clamp(float x, float a, float b);
-
 __device__ float d_clamp(float x, float a, float b);
-
 __global__ void d_FDTD2d_tm_H(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CHYX, float *CHYXL, float *CHXY, float *CHXYL, float *HXY, float *HYX, float *CHXLY, float *CHYLX, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue);
-
 __global__ void d_FDTD2d_tm_E(float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CEZY, float *CEZYL, float *EZX, float *EZY, float *CEZ, float *CEZLX, float *CEZLY, float step, unsigned int t, int L, unsigned int width, unsigned int height, int power_x, int power_y);
-
 float h_clamp(float x, float a, float b);
-
-
 void RunGPUKernel(void);
 void RunCPUKernel(void);
-
 void InitPBO(GLuint *pbo, unsigned int size, struct cudaGraphicsResource **pbo_res, unsigned int pbo_res_flags);
-
 void InitTexData();
-
 void LoadShaders();
-
 void LoadTriangle();
-
 void Render();
-
 void OnError(int errorCode, const char* msg);
-
 void AppMain();
-
 float CalcFPS(GLFWwindow *gWindow, float theTimeInterval = 1.0, std::string theWindowTitle = "NONE");
-
 void Update(float secondsElapsed);
-
 void CameraInit();
-
 void OnScroll(GLFWwindow *window, double deltaX, double deltaY);
-
 void OnClick(GLFWwindow *window, int button, int action, int mods);
-
 void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r);
-
 void GUIRender(struct nk_context *ctx, int x, int y);
 
 
@@ -271,7 +245,7 @@ void GUIRender(struct nk_context *ctx, int x, int y)
       }
 
       nk_layout_row_push(ctx, 100);
-      nk_value_float(ctx, "Width", wall_r);
+      nk_value_int(ctx, "Width", wall_r);
 
       nk_layout_row_push(ctx, 20);
       nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
@@ -428,10 +402,6 @@ __device__ float d_clamp(float x, float a, float b)
 
 void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r){
   int index;
-  /* for(int i=0;i<X;i++){ */
-  /*   for(int j=0;j<Y/2-r/2;j++){ */
-  /*     index = GRID_Y * j + i; */
-
   for(int i=0;i<X;i++){
     for(int j=0;j<Y/2-r/2;j++){
       index = GRID_Y * j + i;
@@ -462,16 +432,16 @@ void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r){
     }
   }
 
-  int j = Y/2-r/2;
-  for(int i=X/2-r/2;i<X/2+r/2;i++){
-    for(int k=Y/2-r/2;k<=j;k++){
-      index = GRID_Y * k + i;
-      ez[index] = 0.0;
-      h_g_data[index * 3 + 0]=(GLubyte)0;
-      h_g_data[index * 3 + 1]=(GLubyte)0;
-      h_g_data[index * 3 + 2]=(GLubyte)0;
+  for(int i=0;i<X;i++){
+    for(int j=0;j<Y;j++){
+      if(i>=j){
+        index = GRID_Y*j+i;
+        ez[index] = 0.0;
+        h_g_data[index * 3 + 0]=(GLubyte)0;
+        h_g_data[index * 3 + 1]=(GLubyte)0;
+        h_g_data[index * 3 + 2]=(GLubyte)0;
+      }
     }
-    j+=(int)(sqrt(2));
   }
 
 }
@@ -1199,8 +1169,8 @@ void AppMain() {
 
     nk_glfw3_new_frame();
 
-    /* RunCPUKernel(); */
-    RunGPUKernel();
+    RunCPUKernel();
+    /* RunGPUKernel(); */
     // draw one frame
     Render();
 
