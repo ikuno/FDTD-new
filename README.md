@@ -15,7 +15,7 @@
 - OpenMP
 
 ## Install
-- git clone --recursive -j8 https://github.com/Jie211/fdtd-tmp.git
+- git clone --recursive https://github.com/Jie211/FDTD-new.git
 - or
-    - git clone https://github.com/Jie211/fdtd-tmp.git
-    - git submodule update --init --recursive
+  - git clone https://github.com/Jie211/FDTD-new.git
+  - git submodule update --init --recursive
