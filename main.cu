@@ -17,6 +17,7 @@
 
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
+#include <helper_cuda.h>
 
 const int SIZE_X=1080;
 const int SIZE_Y=1080;
@@ -29,6 +30,7 @@ const int GRID_Y=1080;
 
 #define BLOCKDIM_X 16
 #define BLOCKDIM_Y 16
+#define USEDEVICE 0
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -1521,6 +1523,32 @@ int main(int argc, char *argv[]) {
   if(GPU_flag && CPU_flag){
     cout << "CPU, GPU only one can be use" << endl;
   }
+
+  int deviceCount = 0, driverVersion = 0, runtimeVersion = 0;
+  checkCudaErrors(cudaGetDeviceCount(&deviceCount));
+  if(deviceCount==0){
+    cout<<"No CUDA supported device"<<endl;
+    return EXIT_SUCCESS;
+  }else{
+    cout<<"Found "<<deviceCount<<" support device, Use No[" <<USEDEVICE<<"]"<<endl;
+    checkCudaErrors(cudaSetDevice(USEDEVICE));
+  }
+  cudaDeviceProp deviceProp;
+  checkCudaErrors(cudaGetDeviceProperties(&deviceProp, USEDEVICE));
+  cout << "-------------------------------------------"<<endl;
+  cout << "Device Name: "<<deviceProp.name<<endl;
+  checkCudaErrors(cudaDriverGetVersion(&driverVersion));
+  checkCudaErrors(cudaRuntimeGetVersion(&runtimeVersion));
+  cout << "CUDA Driver Version: "<<driverVersion/1000<<"."<<(driverVersion%100)/10<<", Runtime Version: "<<runtimeVersion/1000<<"."<<(runtimeVersion%100)/10<<endl;
+  cout << "Capability Version: "<<deviceProp.major<<"."<<deviceProp.minor<<endl;
+  cout << "-------------------------------------------"<<endl;
+  if(GPU_UM_flag && deviceProp.major < 3){
+    cout << "Unified Memory Need Capability >= 3.0" << endl;
+    return EXIT_SUCCESS;
+  }
+
+
+
 
   try {
     AppMain();
