@@ -18,8 +18,7 @@
 
 #include "Program.h"
 #include <stdexcept>
-// #include <glm/gtc/type_ptr.hpp>
-#include "./glm/gtc/type_ptr.hpp"
+#include "./glm/glm/gtc/type_ptr.hpp"
 
 using namespace tdogl;
 

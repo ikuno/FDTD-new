@@ -1,10 +1,10 @@
 CUDA_INSTALL_PATH ?= /usr/local/cuda
 
 CXX := g++
-NVCC := nvcc
-LINK := nvcc
+NVCC := $(CUDA_INSTALL_PATH)/bin/nvcc
+LINK := $(CUDA_INSTALL_PATH)/bin/nvcc
 
-INCLUDES = -I./nuklear -I./glm -I./common/inc
+INCLUDES = -I./common/inc
 
 NVCCINFO = -Xptxas -v
 # NVCCFLAGS = -Xcompiler "-fopenmp -O3" -std=c++11 -O3 --use_fast_math
