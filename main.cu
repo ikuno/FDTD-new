@@ -12,7 +12,7 @@
 
 #include "Program.h"
 #include "Camera.h"
-#include "cmdline.h"
+#include "./cmdline/cmdline.h"
 
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
