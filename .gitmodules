@@ -3,7 +3,7 @@
 	url = https://github.com/g-truc/glm.git
 [submodule "nuklear"]
 	path = nuklear
-	url = https://jie211@github.com/jie211/nuklear.git
+	url = https://github.com/jie211/nuklear.git
 [submodule "cmdline"]
 	path = cmdline
 	url = https://github.com/tanakh/cmdline.git

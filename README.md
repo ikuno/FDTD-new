@@ -1,7 +1,21 @@
-#GL3.2_FDTD2D_TM
+#FDTD + OpenGL + CUDA/OpenMP
 
-##2D Microwave simulation by using FDTD.
+## Explanation
+- 2D Microwave simulation by using FDTD TM mode.
+- RealTime Visualization by OpenGL.
+- Parallelization wit CUDA/OpenMP
 
-- C++
-- GLFW + GLEW 
-- OpenGL3.2 + GLSL
+## Request
+- GCC >= 4.9
+- GLFW
+- GLEW 
+- OpenGL >= 3.2
+- GLSL >= 1.5
+- CUDA (Unified Memory need CUDA Toolkit >= 6, Capability >= 3)
+- OpenMP
+
+## Install
+- git clone --recursive -j8 https://github.com/Jie211/fdtd-tmp.git
+- or
+    - git clone --recursive -j8 https://github.com/Jie211/fdtd-tmp.git
+    - git submodule update --init --recursive
