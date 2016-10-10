@@ -17,5 +17,5 @@
 ## Install
 - git clone --recursive -j8 https://github.com/Jie211/fdtd-tmp.git
 - or
-    - git clone --recursive -j8 https://github.com/Jie211/fdtd-tmp.git
+    - git clone https://github.com/Jie211/fdtd-tmp.git
     - git submodule update --init --recursive
