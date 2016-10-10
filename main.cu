@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstdlib>
 
-// #include <string>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -27,10 +26,15 @@ const int GRID_Y=1080;
 /* int GRID_X=2160; */
 /* int GRID_Y=2160; */
 
+#define STR(x)   #x
+#define SHOW_DEFINE(x) printf("%s=%s\n", #x, STR(x))
 
 #define BLOCKDIM_X 16
 #define BLOCKDIM_Y 16
 #define USEDEVICE 0
+#define USETHREAD 4
+#define USEGLMAJOR 3
+#define USEGLMINOR 2
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -106,11 +110,6 @@ int power_x, power_y;
 //camera
 float gScrollY = 0.0;
 
-
-
-
-
-
 GLFWwindow* gWindow = NULL;
 tdogl::Program* gProgram = NULL;
 tdogl::Camera gCamera;
@@ -123,9 +122,7 @@ GLubyte *h_g_data;
 GLubyte *d_g_data;
 struct cudaGraphicsResource *pbo_res;
 
-
-
-
+///////// forward declaration ////////
 
 void free_data(void);
 
@@ -134,8 +131,6 @@ void malloc_Initialdata(void);
 void setInitialData(unsigned int width, unsigned int height);
 
 void launchCPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y);
-
-/* void launchGPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y, int R); */
 
 void launchGPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, const float step, const unsigned int t, const int L, const unsigned int width, const unsigned int height, const float max, const float min, const float yellow, const float green, const float lightblue, const int power_x, const int power_y, const int R);
 
@@ -162,7 +157,67 @@ void OnScroll(GLFWwindow *window, double deltaX, double deltaY);
 void OnClick(GLFWwindow *window, int button, int action, int mods);
 void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r);
 void GUIRender(struct nk_context *ctx, int x, int y);
+string exec(const char* cmd);
 
+template <typename List>
+void split(const std::string& s, const std::string& delim, List& result)
+{
+  result.clear();
+
+  using string = std::string;
+  string::size_type pos = 0;
+
+  while(pos != string::npos )
+  {
+    string::size_type p = s.find(delim, pos);
+
+    if(p == string::npos)
+    {
+      result.push_back(s.substr(pos));
+      break;
+    }
+    else {
+      result.push_back(s.substr(pos, p - pos));
+    }
+
+    pos = p + delim.size();
+  }
+}
+
+void error_log(const char *output)
+{
+  cout << "\x1b[31m" << "[x] "<< output << " " << "\x1b[0m";
+}
+
+void warning_log(const char *output)
+{
+  cout << "\x1b[33m" << "[△] "<< output << " " << "\x1b[0m";
+}
+
+void normal_log(const char *output)
+{
+  cout << "\x1b[32m" << "[o] "<< output << " " << "\x1b[0m";
+}
+
+string exec(const char* cmd) {
+  char buffer[128];
+  std::string result = "";
+  FILE* pipe = popen(cmd, "r");
+  if (!pipe) throw std::runtime_error("popen() failed!");
+  try {
+    while (!feof(pipe)) {
+      if (fgets(buffer, 128, pipe) != NULL)
+        if(buffer[0] != '\n' && buffer[0] !='\0'){
+          result += buffer;
+        }
+    }
+  } catch (...) {
+    pclose(pipe);
+    throw;
+  }
+  pclose(pipe);
+  return result;
+}
 
 inline float h_clamp(float x, float a, float b)
 {
@@ -172,7 +227,6 @@ inline float h_clamp(float x, float a, float b)
     x = b;
   return x;
 }
-
 
 void GUIRender(struct nk_context *ctx, int x, int y)
 {
@@ -228,7 +282,6 @@ void GUIRender(struct nk_context *ctx, int x, int y)
         nk_tooltip_end(ctx);
       }
     }
-
 
     /* if (nk_tree_push(ctx, NK_TREE_NODE, "Sampling", NK_MINIMIZED)) */
     /* { */
@@ -292,7 +345,6 @@ void GUIRender(struct nk_context *ctx, int x, int y)
   nk_end(ctx);
 
 }
-
 
 void OnClick(GLFWwindow *window, int button, int action, int mods)
 {
@@ -379,7 +431,6 @@ void CameraInit()
   gCamera.setPosition(glm::vec3(0, 0, 2.1));
   gCamera.setViewportAspectRatio(SIZE_X / SIZE_Y);
 }
-
 
 float CalcFPS(GLFWwindow *gWindow, float theTimeInterval, string theWindowTitle)
 {
@@ -620,8 +671,6 @@ void launchGPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CE
   d_FDTD2d_tm_H <<< grid, block >>> (g_data, Ez, Hx, Hy, CHYX, CHYXL, CHXY, CHXYL, HXY, HYX, CHXLY, CHYLX, L, width, height, max, min, yellow, green, lightblue, R);
 }
 
-
-
 void h_FDTD2d_tm(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y)
 {
   // unsigned int i, j, index;
@@ -788,7 +837,6 @@ void setInitialData(unsigned int width, unsigned int height)
       h_CEZYL[index] = 0.0;
       h_CHXY[index] = 0.0;
       h_CHXYL[index] = 0.0;
-
 
       h_EZX[index] = 0.0;
       h_EZY[index] = 0.0;
@@ -1051,7 +1099,6 @@ void malloc_Initialdata(void)
     cudaMalloc((void**)&d_HXY, sizeof(float) *GRID_Y * GRID_X);
     cudaMalloc((void**)&d_HYX, sizeof(float) *GRID_Y * GRID_X);
 
-
     cudaMalloc((void**)&d_CEZX, sizeof(float) *GRID_Y * GRID_X);
     cudaMalloc((void**)&d_CEZXL, sizeof(float) *GRID_Y * GRID_X);
     cudaMalloc((void**)&d_CHYX, sizeof(float) *GRID_Y * GRID_X);
@@ -1060,7 +1107,6 @@ void malloc_Initialdata(void)
     cudaMalloc((void**)&d_CEZYL, sizeof(float) *GRID_Y * GRID_X);
     cudaMalloc((void**)&d_CHXY, sizeof(float) *GRID_Y * GRID_X);
     cudaMalloc((void**)&d_CHXYL, sizeof(float) *GRID_Y * GRID_X);
-
 
     cudaMalloc((void**)&d_Ez, sizeof(float) *GRID_Y * GRID_X);
     cudaMalloc((void**)&d_Hx, sizeof(float) *GRID_Y * GRID_X);
@@ -1187,18 +1233,6 @@ void free_data(void)
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 void RunGPUKernel_Copy(void){
   if(!flag){
     if(GPU_UM_flag){
@@ -1241,7 +1275,6 @@ void RunCPUKernel(void){
   if(!flag){
     launchCPUKernel(h_g_data, h_Ez, h_Hx, h_Hy, h_CEZX, h_CEZXL, h_CHYX, h_CHYXL, h_CEZY, h_CEZYL, h_CHXY, h_CHXYL, h_EZX, h_EZY, h_HXY, h_HYX, h_CEZ, h_CEZLX, h_CEZLY, h_CHXLY, h_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y);
   }
-
 
   kt++;
 
@@ -1316,7 +1349,6 @@ void LoadTriangle() {
   glBindVertexArray(0);
 }
 
-
 // draws a single frame
 void Render() {
   // clear everything
@@ -1354,6 +1386,11 @@ void OnError(int errorCode, const char* msg) {
 // the program starts here
 void AppMain() {
 
+  int VerMajor, VerMinor, VerRev;
+  string gl_support, glsl_support;
+  vector<string> gl_str;
+  vector<string> glsl_str;
+
   if(GPU_MAPPED_flag){
     cudaSetDeviceFlags(cudaDeviceMapHost);
   }
@@ -1362,12 +1399,15 @@ void AppMain() {
   glfwSetErrorCallback(OnError);
   if(!glfwInit())
     throw runtime_error("glfwInit failed");
+  glfwGetVersion(&VerMajor, &VerMinor, &VerRev);
+  normal_log("GLFW");
+  cout << "GLFW Version "<<VerMajor<<"."<<VerMinor<<"."<<VerRev<<endl;
 
   // open a window with GLFW
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, USEGLMAJOR);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, USEGLMINOR);
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
   gWindow = glfwCreateWindow(SIZE_X, SIZE_Y, "Strting...", NULL, NULL);
   if(!gWindow)
@@ -1380,25 +1420,38 @@ void AppMain() {
   glewExperimental = GL_TRUE; //stops glew crashing on OSX :-/
   if(glewInit() != GLEW_OK)
     throw runtime_error("glewInit failed");
+  normal_log("GLEW");
+  cout << "GLEW Version "<<glewGetString(GLEW_VERSION)<<endl;
+  cout << "-------------------------------------------"<<endl;
+
+  gl_support = exec("glxinfo | grep 'OpenGL version string'");
+  glsl_support = exec("glxinfo | grep 'OpenGL shading language version string'");
+
+  split(gl_support, ": ", gl_str);
+  split(glsl_support, ": ", glsl_str);
+
+  normal_log("OpenGL");
+  cout << "Support OpenGL Version: " << gl_str[1];
+  normal_log("OpenGL");
+  cout << "Support GLSL Version: " << glsl_str[1];
 
   // print out some info about the graphics drivers
+  normal_log("OpenGL");
   cout << "OpenGL version: " << glGetString(GL_VERSION) << endl;
+  normal_log("OpenGL");
   cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
+  normal_log("OpenGL");
   cout << "Vendor: " << glGetString(GL_VENDOR) << endl;
+  normal_log("OpenGL");
   cout << "Renderer: " << glGetString(GL_RENDERER) << endl;
 
   // make sure OpenGL version 3.2 API is available
   if(!GLEW_VERSION_3_2)
     throw runtime_error("OpenGL 3.2 API is not available.");
+  cout << "-------------------------------------------"<<endl;
 
   //V-sync
   glfwSwapInterval(0);
-
-
-
-
-
-
 
   malloc_Initialdata();
 
@@ -1425,7 +1478,6 @@ void AppMain() {
     nk_glfw3_font_stash_begin(&atlas);
     nk_glfw3_font_stash_end();
   }
-
 
   float lastTime = glfwGetTime();
   // run while the window is open
@@ -1457,20 +1509,16 @@ void AppMain() {
     float thisTime = glfwGetTime();
     Update((float)(thisTime - lastTime));
 
-    
     GUIRender(ctx, GRID_X, GRID_Y);
     nk_glfw3_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
-
 
     // swap the display buffers (displays what was just drawn)
     glfwSwapBuffers(gWindow);
 
-    
     if(glfwGetKey(gWindow, GLFW_KEY_ESCAPE)){
       free_data();
       glDeleteTextures(1, &gTEX);
       glDeleteBuffers(1, &gPBO);
-
       if(GPU_flag){
         cudaGraphicsUnregisterResource(pbo_res);
         cudaFree(d_g_data);
@@ -1482,10 +1530,8 @@ void AppMain() {
         cudaThreadExit();
         cudaDeviceReset();
       }
-
       glfwSetWindowShouldClose(gWindow, GL_TRUE);
     }
-
   }
   // clean up and exit
   nk_glfw3_shutdown();
@@ -1524,32 +1570,41 @@ int main(int argc, char *argv[]) {
     cout << "CPU, GPU only one can be use" << endl;
   }
 
+  cout << "-------------------------------------------"<<endl;
+  normal_log("OpenMP");
+  SHOW_DEFINE(_OPENMP);
+  normal_log("OpenMP");
+  cout << "OpenMP Set threads:"<<USETHREAD<<endl;
+  omp_set_num_threads(USETHREAD);
+  cout << "-------------------------------------------"<<endl;
   int deviceCount = 0, driverVersion = 0, runtimeVersion = 0;
   checkCudaErrors(cudaGetDeviceCount(&deviceCount));
   if(deviceCount==0){
+    error_log("OpenMP");
     cout<<"No CUDA supported device"<<endl;
     return EXIT_SUCCESS;
   }else{
+    normal_log("CUDA");
     cout<<"Found "<<deviceCount<<" support device, Use No[" <<USEDEVICE<<"]"<<endl;
     checkCudaErrors(cudaSetDevice(USEDEVICE));
   }
   cudaDeviceProp deviceProp;
   checkCudaErrors(cudaGetDeviceProperties(&deviceProp, USEDEVICE));
-  cout << "-------------------------------------------"<<endl;
+  normal_log("CUDA");
   cout << "Device Name: "<<deviceProp.name<<endl;
   checkCudaErrors(cudaDriverGetVersion(&driverVersion));
   checkCudaErrors(cudaRuntimeGetVersion(&runtimeVersion));
+  normal_log("CUDA");
   cout << "CUDA Driver Version: "<<driverVersion/1000<<"."<<(driverVersion%100)/10<<", Runtime Version: "<<runtimeVersion/1000<<"."<<(runtimeVersion%100)/10<<endl;
+  normal_log("CUDA");
   cout << "Capability Version: "<<deviceProp.major<<"."<<deviceProp.minor<<endl;
-  cout << "-------------------------------------------"<<endl;
   if(GPU_UM_flag && deviceProp.major < 3){
+    error_log("CUDA");
     cout << "Unified Memory Need Capability >= 3.0" << endl;
     return EXIT_SUCCESS;
   }
-
-
-
-
+  cout << "-------------------------------------------"<<endl;
+  
   try {
     AppMain();
   } catch (const exception& e){
@@ -1559,4 +1614,3 @@ int main(int argc, char *argv[]) {
 
   return EXIT_SUCCESS;
 }
-
