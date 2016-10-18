@@ -18,21 +18,19 @@
 #include <cuda_gl_interop.h>
 #include <helper_cuda.h>
 
-const int SIZE_X=1080;
-const int SIZE_Y=1080;
+const int SIZE_X=512;
+const int SIZE_Y=512;
 
-const int GRID_X=1080;
-const int GRID_Y=1080;
-/* int GRID_X=2160; */
-/* int GRID_Y=2160; */
+const int GRID_X=1024;
+const int GRID_Y=1024;
 
 #define STR(x)   #x
 #define SHOW_DEFINE(x) printf("%s=%s\n", #x, STR(x))
 
-#define BLOCKDIM_X 16
-#define BLOCKDIM_Y 16
+#define BLOCKDIM 16
+
 #define USEDEVICE 0
-#define USETHREAD 4
+#define USETHREAD 8
 #define USEGLMAJOR 3
 #define USEGLMINOR 2
 
@@ -122,6 +120,7 @@ GLubyte *h_g_data;
 GLubyte *d_g_data;
 struct cudaGraphicsResource *pbo_res;
 
+static int Block_size = BLOCKDIM;
 ///////// forward declaration ////////
 
 void free_data(void);
@@ -663,8 +662,8 @@ __global__ void d_FDTD2d_tm_E(float *Ez, float *Hx, float *Hy, float *CEZX, floa
 
 void launchGPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CEZX, float *CEZXL, float *CHYX, float *CHYXL, float *CEZY, float *CEZYL, float *CHXY, float *CHXYL, float *EZX, float *EZY, float *HXY, float *HYX, float *CEZ, float *CEZLX, float *CEZLY, float *CHXLY, float *CHYLX, float step, unsigned int t, int L, unsigned int width, unsigned int height, float max, float min, float yellow, float green, float lightblue, int power_x, int power_y, int R)
 {
-  dim3 grid(width / BLOCKDIM_X + 1, height / BLOCKDIM_Y + 1);
-  dim3 block(BLOCKDIM_X, BLOCKDIM_Y, 1);
+  dim3 grid(width / Block_size + 1, height / Block_size + 1);
+  dim3 block(Block_size, Block_size, 1);
 
 
   d_FDTD2d_tm_E <<< grid, block >>> (Ez, Hx, Hy, CEZX, CEZXL, CEZY, CEZYL, EZX, EZY, CEZ, CEZLX, CEZLY, step, t, L, width, height, power_x, power_y);
@@ -793,6 +792,9 @@ void launchCPUKernel(GLubyte *g_data, float *Ez, float *Hx, float *Hy, float *CE
 
 }
 
+void initWallSize(){
+  wall_r = lambda / 2 / delta_x + 10;
+}
 
 void setInitialData(unsigned int width, unsigned int height)
 {
@@ -807,7 +809,7 @@ void setInitialData(unsigned int width, unsigned int height)
   Ez_yellow = Ez_range*0.75f+Ez_min;
   Ez_green = Ez_range*0.50f+Ez_min;
   Ez_lightblue = Ez_range*0.25f+Ez_min;
-  wall_r = lambda / 2 / delta_x + 10;
+  /* wall_r = lambda / 2 / delta_x + 10; */
 
   power_x = 12;
   power_y = GRID_Y/2 - 1;
@@ -1456,6 +1458,7 @@ void AppMain() {
   malloc_Initialdata();
 
   setInitialData(GRID_X, GRID_Y);
+  initWallSize();
 
   LoadShaders();
 
@@ -1541,6 +1544,7 @@ void AppMain() {
 int main(int argc, char *argv[]) {
   cmdline::parser cmd;
   cmd.add<string>("render", 'r', "Render Device [gpu, cpu, copy, pin, map, um]", true, "", cmdline::oneof<string>("gpu", "cpu", "copy", "pin", "map", "um"));
+  cmd.add<int>("block", 'b', "Thread size in one Block", false, 16, cmdline::range(1, 1080));
   cmd.add("help", 0, "Help Message");
   cmd.set_program_name("fdtd");
   bool ok = cmd.parse(argc, argv);
@@ -1569,6 +1573,8 @@ int main(int argc, char *argv[]) {
   if(GPU_flag && CPU_flag){
     cout << "CPU, GPU only one can be use" << endl;
   }
+
+  cout << "Block-> "<< cmd.get<int>("block") << endl;
 
   cout << "-------------------------------------------"<<endl;
   normal_log("OpenMP");
