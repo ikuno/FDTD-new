@@ -21,13 +21,11 @@
 const int SIZE_X=512;
 const int SIZE_Y=512;
 
-const int GRID_X=1024;
-const int GRID_Y=1024;
-
 #define STR(x)   #x
 #define SHOW_DEFINE(x) printf("%s=%s\n", #x, STR(x))
 
-#define BLOCKDIM 16
+#define BLOCKDIF 16
+#define GRIDDIF 1024
 
 #define USEDEVICE 0
 #define USETHREAD 8
@@ -57,6 +55,7 @@ bool GPU_COPY_flag=false;
 bool GPU_PINNED_flag=false;
 bool GPU_MAPPED_flag=false;
 bool GPU_UM_flag=false;
+bool vsync_flag=false;
 
 /****************
  *   parameter   *
@@ -120,7 +119,10 @@ GLubyte *h_g_data;
 GLubyte *d_g_data;
 struct cudaGraphicsResource *pbo_res;
 
-static int Block_size = BLOCKDIM;
+int Block_size = 32;
+int Grid_size_x = 1024;
+int Grid_size_y = 1024; 
+
 ///////// forward declaration ////////
 
 void free_data(void);
@@ -486,7 +488,7 @@ void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r){
   int index;
   for(int i=0;i<X;i++){
     for(int j=0;j<Y/2-r/2;j++){
-      index = GRID_Y * j + i;
+      index = Grid_size_y * j + i;
       ez[index] = 0.0;
       h_g_data[index * 3 + 0]=(GLubyte)0;
       h_g_data[index * 3 + 1]=(GLubyte)0;
@@ -496,7 +498,7 @@ void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r){
 
   for(int i=0;i<X/2-r/2;i++){
     for(int j=Y/2+r/2;j<Y;j++){
-      index = GRID_Y * j + i;
+      index = Grid_size_y * j + i;
       ez[index] = 0.0;
       h_g_data[index * 3 + 0]=(GLubyte)0;
       h_g_data[index * 3 + 1]=(GLubyte)0;
@@ -506,7 +508,7 @@ void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r){
 
   for(int i=X/2+r/2;i<X;i++){
     for(int j=Y/2-r/2;j<Y;j++){
-      index = GRID_Y * j + i;
+      index = Grid_size_y * j + i;
       ez[index] = 0.0;
       h_g_data[index * 3 + 0]=(GLubyte)0;
       h_g_data[index * 3 + 1]=(GLubyte)0;
@@ -517,7 +519,7 @@ void PEC(GLubyte *h_g_data, float *ez, int X, int Y, int r){
   for(int i=0;i<X;i++){
     for(int j=0;j<Y;j++){
       if(i>=j){
-        index = GRID_Y*j+i;
+        index = Grid_size_y*j+i;
         ez[index] = 0.0;
         h_g_data[index * 3 + 0]=(GLubyte)0;
         h_g_data[index * 3 + 1]=(GLubyte)0;
@@ -812,22 +814,22 @@ void setInitialData(unsigned int width, unsigned int height)
   /* wall_r = lambda / 2 / delta_x + 10; */
 
   power_x = 12;
-  power_y = GRID_Y/2 - 1;
+  power_y = Grid_size_y/2 - 1;
 
   int i, j, index;
   float Z, ZZ;
-  for(j = 0; j<GRID_Y; j++){
-    for(i = 0; i<GRID_X; i++){
-      index = GRID_X * j + i;
+  for(j = 0; j<Grid_size_y; j++){
+    for(i = 0; i<Grid_size_x; i++){
+      index = Grid_size_x * j + i;
       h_mu_M[index]  =  mu0;
       h_epsilon_M[index] = epsilon0;
       h_sigma_M[index] = sigma0;
     }
   }
 
-  for(j = 0; j<GRID_Y; j++){
-    for(i = 0;i<GRID_X; i++){
-      index = GRID_X * j + i;
+  for(j = 0; j<Grid_size_y; j++){
+    for(i = 0;i<Grid_size_x; i++){
+      index = Grid_size_x * j + i;
       h_Ez[index] = 0.0;
       h_Hx[index] = 0.0;
       h_Hy[index] = 0.0;
@@ -853,25 +855,25 @@ void setInitialData(unsigned int width, unsigned int height)
     }
   }
 
-  for(i=0;i<GRID_X;i++){
+  for(i=0;i<Grid_size_x;i++){
     h_ECX[i]=0.0;
   }
 
-  for(j=0;j<GRID_X;j++){
+  for(j=0;j<Grid_size_x;j++){
     h_ECY[j]=0.0;
   }
 
   for(i=0;i<L;i++){
     h_ECX[i] = ecmax * pow((L-i+0.5)/L,M);
-    h_ECX[GRID_X-i-1] = h_ECX[i];
+    h_ECX[Grid_size_x-i-1] = h_ECX[i];
     h_ECY[i] = h_ECX[i];
-    h_ECY[GRID_Y-i-1] = h_ECX[i];
+    h_ECY[Grid_size_y-i-1] = h_ECX[i];
   }
 
   //PML init
-  for(i=0;i<GRID_X;i++){
-    for(j=0;j<GRID_Y;j++){
-      index = GRID_X * j + i;
+  for(i=0;i<Grid_size_x;i++){
+    for(j=0;j<Grid_size_y;j++){
+      index = Grid_size_x * j + i;
       Z = (h_ECX[i] * delta_t)/(2.0*h_epsilon_M[index]);
       h_CEZX[index]=(1-Z)/(1+Z);
       h_CEZXL[index]=(delta_t/h_epsilon_M[index])/(1+Z)*(1.0/delta_x);
@@ -886,9 +888,9 @@ void setInitialData(unsigned int width, unsigned int height)
   }
 
   //FDTD init
-  for(i=0;i<GRID_X;i++){
-    for(j=0;j<GRID_Y;j++){
-      index = GRID_X * j + i;
+  for(i=0;i<Grid_size_x;i++){
+    for(j=0;j<Grid_size_y;j++){
+      index = Grid_size_x * j + i;
       ZZ = (h_sigma_M[index] * delta_t)/(2.0*h_epsilon_M[index]);
       h_CEZ[index]=(1-ZZ)/(1+ZZ);
       h_CEZLX[index]=(delta_t/h_epsilon_M[index])/(1+ZZ)*(1.0/delta_x);
@@ -898,9 +900,9 @@ void setInitialData(unsigned int width, unsigned int height)
     }
   }
 
-  for(i=0;i<GRID_X;i++){
-    for(j=0;j<GRID_Y;j++){
-      index = GRID_X * j + i;
+  for(i=0;i<Grid_size_x;i++){
+    for(j=0;j<Grid_size_y;j++){
+      index = Grid_size_x * j + i;
       h_g_data[index*3] = (GLubyte)255;
       h_g_data[index*3+1] = (GLubyte)0;
       h_g_data[index*3+2] = (GLubyte)0;	
@@ -908,26 +910,26 @@ void setInitialData(unsigned int width, unsigned int height)
   }
 
   if(GPU_flag || GPU_COPY_flag || GPU_PINNED_flag){
-    cudaMemcpy(d_Ez, h_Ez, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_Hx, h_Hx, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_Hy, h_Hy, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CEZX, h_CEZX, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CEZXL, h_CEZXL, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CHYX, h_CHYX, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CHYXL, h_CHYXL, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CEZY, h_CEZY, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CEZYL, h_CEZYL, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CHXY, h_CHXY, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CHXYL, h_CHXYL, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_EZX, h_EZX, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_EZY, h_EZY, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_HXY, h_HXY, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_HYX, h_HYX, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CEZ, h_CEZ, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CEZLX, h_CEZLX, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CEZLY, h_CEZLY, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CHXLY, h_CHXLY, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CHYLX, h_CHYLX, sizeof(float) * GRID_Y * GRID_X, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Ez, h_Ez, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Hx, h_Hx, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Hy, h_Hy, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CEZX, h_CEZX, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CEZXL, h_CEZXL, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CHYX, h_CHYX, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CHYXL, h_CHYXL, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CEZY, h_CEZY, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CEZYL, h_CEZYL, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CHXY, h_CHXY, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CHXYL, h_CHXYL, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_EZX, h_EZX, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_EZY, h_EZY, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_HXY, h_HXY, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_HYX, h_HYX, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CEZ, h_CEZ, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CEZLX, h_CEZLX, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CEZLY, h_CEZLY, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CHXLY, h_CHXLY, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CHYLX, h_CHYLX, sizeof(float) * Grid_size_y * Grid_size_x, cudaMemcpyHostToDevice);
   }else if(GPU_MAPPED_flag){
     cudaHostGetDevicePointer((void**)&d_Ez, (void*)h_Ez, 0);
     cudaHostGetDevicePointer((void**)&d_Hx, (void*)h_Hx, 0);
@@ -957,43 +959,43 @@ void setInitialData(unsigned int width, unsigned int height)
 
 void malloc_Initialdata(void)
 {
-  int size = sizeof(float)*GRID_X*GRID_Y;
+  int size = sizeof(float)*Grid_size_x*Grid_size_y;
 
   if(CPU_flag || GPU_flag || GPU_COPY_flag){
-    h_g_data = (GLubyte *)malloc(sizeof(GLubyte) * GRID_X * GRID_Y * 3);
+    h_g_data = (GLubyte *)malloc(sizeof(GLubyte) * Grid_size_x * Grid_size_y * 3);
 
-    h_Ez  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_Hx  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_Hy  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
+    h_Ez  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_Hx  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_Hy  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
 
-    h_sigma_M  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_epsilon_M = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_mu_M = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
+    h_sigma_M  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_epsilon_M = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_mu_M = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
 
-    h_ECX = (float *)malloc(sizeof(float) * GRID_X);
-    h_ECY = (float *)malloc(sizeof(float) * GRID_Y);
+    h_ECX = (float *)malloc(sizeof(float) * Grid_size_x);
+    h_ECY = (float *)malloc(sizeof(float) * Grid_size_y);
 
-    h_CEZX  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CEZXL = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CHYX  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CHYXL = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CEZY  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CEZYL = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CHXY  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CHXYL = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
+    h_CEZX  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CEZXL = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CHYX  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CHYXL = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CEZY  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CEZYL = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CHXY  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CHXYL = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
 
-    h_EZX = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_EZY  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_HXY = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_HYX = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
+    h_EZX = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_EZY  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_HXY = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_HYX = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
 
-    h_CEZ  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CEZLX = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CEZLY  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CHXLY = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
-    h_CHYLX  = (float *)malloc(sizeof(float) * GRID_Y * GRID_X);
+    h_CEZ  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CEZLX = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CEZLY  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CHXLY = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
+    h_CHYLX  = (float *)malloc(sizeof(float) * Grid_size_y * Grid_size_x);
   }else if(GPU_PINNED_flag){
-    cudaHostAlloc((void**)&h_g_data, sizeof(GLubyte)*GRID_X*GRID_Y*3, cudaHostAllocDefault);
+    cudaHostAlloc((void**)&h_g_data, sizeof(GLubyte)*Grid_size_x*Grid_size_y*3, cudaHostAllocDefault);
 
     cudaHostAlloc((void**)&h_Ez, size, cudaHostAllocDefault);
     cudaHostAlloc((void**)&h_Hx, size, cudaHostAllocDefault);
@@ -1026,7 +1028,7 @@ void malloc_Initialdata(void)
     cudaHostAlloc((void**)&h_CHXLY, size, cudaHostAllocDefault);
     cudaHostAlloc((void**)&h_CHYLX, size, cudaHostAllocDefault);
   }else if(GPU_MAPPED_flag){
-    cudaHostAlloc((void**)&h_g_data, sizeof(GLubyte)*GRID_X*GRID_Y*3, cudaHostAllocMapped);
+    cudaHostAlloc((void**)&h_g_data, sizeof(GLubyte)*Grid_size_x*Grid_size_y*3, cudaHostAllocMapped);
 
     cudaHostAlloc((void**)&h_Ez, size, cudaHostAllocMapped);
     cudaHostAlloc((void**)&h_Hx, size, cudaHostAllocMapped);
@@ -1059,7 +1061,7 @@ void malloc_Initialdata(void)
     cudaHostAlloc((void**)&h_CHXLY, size, cudaHostAllocMapped);
     cudaHostAlloc((void**)&h_CHYLX, size, cudaHostAllocMapped);
   }else if(GPU_UM_flag){
-    cudaMallocManaged((void**)&h_g_data, sizeof(GLubyte)*GRID_X*GRID_Y*3);
+    cudaMallocManaged((void**)&h_g_data, sizeof(GLubyte)*Grid_size_x*Grid_size_y*3);
 
     cudaMallocManaged((void**)&h_Ez, size);
     cudaMallocManaged((void**)&h_Hx, size);
@@ -1096,33 +1098,33 @@ void malloc_Initialdata(void)
   //Malloc CUDA part
 
   if(GPU_flag || GPU_COPY_flag || GPU_PINNED_flag){
-    cudaMalloc((void**)&d_EZX, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_EZY, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_HXY, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_HYX, sizeof(float) *GRID_Y * GRID_X);
+    cudaMalloc((void**)&d_EZX, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_EZY, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_HXY, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_HYX, sizeof(float) *Grid_size_y * Grid_size_x);
 
-    cudaMalloc((void**)&d_CEZX, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CEZXL, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CHYX, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CHYXL, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CEZY, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CEZYL, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CHXY, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CHXYL, sizeof(float) *GRID_Y * GRID_X);
+    cudaMalloc((void**)&d_CEZX, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CEZXL, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CHYX, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CHYXL, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CEZY, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CEZYL, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CHXY, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CHXYL, sizeof(float) *Grid_size_y * Grid_size_x);
 
-    cudaMalloc((void**)&d_Ez, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_Hx, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_Hy, sizeof(float) *GRID_Y * GRID_X);
+    cudaMalloc((void**)&d_Ez, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_Hx, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_Hy, sizeof(float) *Grid_size_y * Grid_size_x);
 
-    cudaMalloc((void**)&d_CEZ, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CEZLX, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CEZLY, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CHXLY, sizeof(float) *GRID_Y * GRID_X);
-    cudaMalloc((void**)&d_CHYLX, sizeof(float) *GRID_Y * GRID_X);
+    cudaMalloc((void**)&d_CEZ, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CEZLX, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CEZLY, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CHXLY, sizeof(float) *Grid_size_y * Grid_size_x);
+    cudaMalloc((void**)&d_CHYLX, sizeof(float) *Grid_size_y * Grid_size_x);
   }
 
   if(GPU_COPY_flag || GPU_PINNED_flag){
-    cudaMalloc((void**)&d_g_data, sizeof(GLubyte) * GRID_X * GRID_Y * 3);
+    cudaMalloc((void**)&d_g_data, sizeof(GLubyte) * Grid_size_x * Grid_size_y * 3);
   }
 
 }
@@ -1238,21 +1240,22 @@ void free_data(void)
 void RunGPUKernel_Copy(void){
   if(!flag){
     if(GPU_UM_flag){
-      launchGPUKernel(h_g_data, h_Ez, h_Hx, h_Hy, h_CEZX, h_CEZXL, h_CHYX, h_CHYXL, h_CEZY, h_CEZYL, h_CHXY, h_CHXYL, h_EZX, h_EZY, h_HXY, h_HYX, h_CEZ, h_CEZLX, h_CEZLY, h_CHXLY, h_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
+      launchGPUKernel(h_g_data, h_Ez, h_Hx, h_Hy, h_CEZX, h_CEZXL, h_CHYX, h_CHYXL, h_CEZY, h_CEZYL, h_CHXY, h_CHXYL, h_EZX, h_EZY, h_HXY, h_HYX, h_CEZ, h_CEZLX, h_CEZLY, h_CHXLY, h_CHYLX, step, kt, L, Grid_size_x, Grid_size_y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
     }else{
-      launchGPUKernel(d_g_data, d_Ez, d_Hx, d_Hy, d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL, d_EZX, d_EZY, d_HXY, d_HYX, d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
+      launchGPUKernel(d_g_data, d_Ez, d_Hx, d_Hy, d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL, d_EZX, d_EZY, d_HXY, d_HYX, d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX, step, kt, L, Grid_size_x, Grid_size_y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
     }
     if(GPU_MAPPED_flag || GPU_UM_flag){
-      cudaDeviceSynchronize();
+     //cudaDeviceSynchronize();
+     cudaThreadSynchronize();
     }
     if(GPU_COPY_flag || GPU_PINNED_flag){
-      cudaMemcpy(h_g_data, d_g_data, sizeof(GLubyte) * GRID_Y * GRID_X * 3, cudaMemcpyDeviceToHost);
+      cudaMemcpy(h_g_data, d_g_data, sizeof(GLubyte) * Grid_size_y * Grid_size_x * 3, cudaMemcpyDeviceToHost);
     }
   }
   kt++;
 
   glBindTexture(GL_TEXTURE_2D, gTEX);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GRID_X, GRID_Y, GL_RGB, GL_UNSIGNED_BYTE, h_g_data);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Grid_size_x, Grid_size_y, GL_RGB, GL_UNSIGNED_BYTE, h_g_data);
 }
 
 void RunGPUKernel(void){
@@ -1260,7 +1263,7 @@ void RunGPUKernel(void){
   cudaGraphicsResourceGetMappedPointer((void**)&d_g_data, NULL, pbo_res);
 
   if(!flag){
-    launchGPUKernel(d_g_data, d_Ez, d_Hx, d_Hy, d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL, d_EZX, d_EZY, d_HXY, d_HYX, d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
+    launchGPUKernel(d_g_data, d_Ez, d_Hx, d_Hy, d_CEZX, d_CEZXL, d_CHYX, d_CHYXL, d_CEZY, d_CEZYL, d_CHXY, d_CHXYL, d_EZX, d_EZY, d_HXY, d_HYX, d_CEZ, d_CEZLX, d_CEZLY, d_CHXLY, d_CHYLX, step, kt, L, Grid_size_x, Grid_size_y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y, wall_r);
   }
   kt++;
 
@@ -1268,20 +1271,20 @@ void RunGPUKernel(void){
   glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gPBO);
   glBindTexture(GL_TEXTURE_2D, gTEX);
 
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GRID_X, GRID_Y, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Grid_size_x, Grid_size_y, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
 void RunCPUKernel(void){
 
   if(!flag){
-    launchCPUKernel(h_g_data, h_Ez, h_Hx, h_Hy, h_CEZX, h_CEZXL, h_CHYX, h_CHYXL, h_CEZY, h_CEZYL, h_CHXY, h_CHXYL, h_EZX, h_EZY, h_HXY, h_HYX, h_CEZ, h_CEZLX, h_CEZLY, h_CHXLY, h_CHYLX, step, kt, L, GRID_X, GRID_Y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y);
+    launchCPUKernel(h_g_data, h_Ez, h_Hx, h_Hy, h_CEZX, h_CEZXL, h_CHYX, h_CHYXL, h_CEZY, h_CEZYL, h_CHXY, h_CHXYL, h_EZX, h_EZY, h_HXY, h_HYX, h_CEZ, h_CEZLX, h_CEZLY, h_CHXLY, h_CHYLX, step, kt, L, Grid_size_x, Grid_size_y, Ez_max, Ez_min, Ez_yellow, Ez_green, Ez_lightblue, power_x, power_y);
   }
 
   kt++;
 
   glBindTexture(GL_TEXTURE_2D, gTEX);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GRID_X, GRID_Y, GL_RGB, GL_UNSIGNED_BYTE, h_g_data);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Grid_size_x, Grid_size_y, GL_RGB, GL_UNSIGNED_BYTE, h_g_data);
 }
 void InitPBO(GLuint *pbo, unsigned int size, struct cudaGraphicsResource **pbo_res, unsigned int pbo_res_flags){
   glGenBuffers(1, pbo);
@@ -1293,9 +1296,9 @@ void InitPBO(GLuint *pbo, unsigned int size, struct cudaGraphicsResource **pbo_r
 
 void InitTexData(){
   int i, j;
-  for(i=0;i<GRID_X;i++){
-    for(j=0;j<GRID_Y;j++){
-      int index = i*GRID_X+j;
+  for(i=0;i<Grid_size_x;i++){
+    for(j=0;j<Grid_size_y;j++){
+      int index = i*Grid_size_x+j;
       h_g_data[index*3+0] = (GLubyte)255;
       h_g_data[index*3+1] = (GLubyte)0;
       h_g_data[index*3+2] = (GLubyte)0;
@@ -1307,7 +1310,7 @@ void InitTexData(){
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, GRID_X, GRID_Y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Grid_size_x, Grid_size_y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 }
 
 void LoadShaders(){
@@ -1453,18 +1456,22 @@ void AppMain() {
   cout << "-------------------------------------------"<<endl;
 
   //V-sync
-  glfwSwapInterval(0);
+  if(vsync_flag==true){
+    glfwSwapInterval(1);
+  }else{
+    glfwSwapInterval(0);
+  }
 
   malloc_Initialdata();
 
-  setInitialData(GRID_X, GRID_Y);
+  setInitialData(Grid_size_x, Grid_size_y);
   initWallSize();
 
   LoadShaders();
 
   if(GPU_flag){
     // GPU interop
-    InitPBO(&gPBO, sizeof(GLubyte)*GRID_X*GRID_Y*3, &pbo_res, cudaGraphicsRegisterFlagsWriteDiscard);
+    InitPBO(&gPBO, sizeof(GLubyte)*Grid_size_x*Grid_size_y*3, &pbo_res, cudaGraphicsRegisterFlagsWriteDiscard);
   }
 
   InitTexData();  
@@ -1512,7 +1519,7 @@ void AppMain() {
     float thisTime = glfwGetTime();
     Update((float)(thisTime - lastTime));
 
-    GUIRender(ctx, GRID_X, GRID_Y);
+    GUIRender(ctx, Grid_size_x, Grid_size_y);
     nk_glfw3_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
 
     // swap the display buffers (displays what was just drawn)
@@ -1544,7 +1551,10 @@ void AppMain() {
 int main(int argc, char *argv[]) {
   cmdline::parser cmd;
   cmd.add<string>("render", 'r', "Render Device [gpu, cpu, copy, pin, map, um]", true, "", cmdline::oneof<string>("gpu", "cpu", "copy", "pin", "map", "um"));
-  cmd.add<int>("block", 'b', "Thread size in one Block", false, 16, cmdline::range(1, 1080));
+  cmd.add<int>("block", 'b', "Thread size in one Block", false, 32, cmdline::range(1, 1024));
+  cmd.add<int>("grid_x", 'x', "X dimention of FDTD Grid", false, 1024, cmdline::range(1,10240));
+  cmd.add<int>("grid_y", 'y', "Y dimention of FDTD Grid", false, 1024, cmdline::range(1,10240));
+  cmd.add("v-sync", 'v', "v-sync for OpenGL");
   cmd.add("help", 0, "Help Message");
   cmd.set_program_name("fdtd");
   bool ok = cmd.parse(argc, argv);
@@ -1569,12 +1579,19 @@ int main(int argc, char *argv[]) {
   }else if(cmd.get<string>("render")=="um"){
     GPU_UM_flag=true;
   }
-
-  if(GPU_flag && CPU_flag){
-    cout << "CPU, GPU only one can be use" << endl;
+  if(cmd.exist("v-sync")){
+    vsync_flag = true;
+    cout << "v-sync-> On" << endl;
   }
+  cout << "v-sync-> Off" << endl;
 
-  cout << "Block-> "<< cmd.get<int>("block") << endl;
+  Grid_size_x = cmd.get<int>("grid_x");
+  Grid_size_y = cmd.get<int>("grid_y");
+  cout << "Grid_x-> "<< Grid_size_x << endl;
+  cout << "Grid_y-> "<< Grid_size_y << endl;
+
+  Block_size = cmd.get<int>("block");
+  cout << "Block-> "<< Block_size << endl;
 
   cout << "-------------------------------------------"<<endl;
   normal_log("OpenMP");
@@ -1617,6 +1634,4 @@ int main(int argc, char *argv[]) {
     cerr << "ERROR: " << e.what() << endl;
     return EXIT_FAILURE;
   }
-
-  return EXIT_SUCCESS;
 }
