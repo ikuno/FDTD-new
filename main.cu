@@ -18,9 +18,6 @@
 #include <cuda_gl_interop.h>
 #include <helper_cuda.h>
 
-const int SIZE_X=512;
-const int SIZE_Y=512;
-
 #define STR(x)   #x
 #define SHOW_DEFINE(x) printf("%s=%s\n", #x, STR(x))
 
@@ -28,7 +25,7 @@ const int SIZE_Y=512;
 #define GRIDDIF 1024
 
 #define USEDEVICE 0
-#define USETHREAD 8
+/* #define USETHREAD 8 */
 #define USEGLMAJOR 3
 #define USEGLMINOR 2
 
@@ -63,8 +60,7 @@ bool vsync_flag=false;
 const float c = 2.99792458e8;
 const float freq = 1.0e9;
 float lambda;
-/* float resolution = 20.0; */
-const float resolution = 100.0;
+/* float Resolution = 20.0; */
 float delta_x;
 float delta_y;
 const float alpha = 0.5;
@@ -122,6 +118,10 @@ struct cudaGraphicsResource *pbo_res;
 int Block_size = 32;
 int Grid_size_x = 1024;
 int Grid_size_y = 1024; 
+int Window_size_x = 512;
+int Window_size_y = 512;
+float Resolution = 100.0;
+int OpenMP_thread = 8;
 
 ///////// forward declaration ////////
 
@@ -430,7 +430,8 @@ void Update(float secondsElapsed)
 void CameraInit()
 {
   gCamera.setPosition(glm::vec3(0, 0, 2.1));
-  gCamera.setViewportAspectRatio(SIZE_X / SIZE_Y);
+  /* gCamera.setViewportAspectRatio(SIZE_X / SIZE_Y); */
+  gCamera.setViewportAspectRatio(Window_size_x / Window_size_y);
 }
 
 float CalcFPS(GLFWwindow *gWindow, float theTimeInterval, string theWindowTitle)
@@ -801,8 +802,8 @@ void initWallSize(){
 void setInitialData(unsigned int width, unsigned int height)
 {
   lambda = c / freq;
-  delta_x = lambda / resolution;
-  delta_y = lambda / resolution;	
+  delta_x = lambda / Resolution;
+  delta_y = lambda / Resolution;	
   delta_t = (1.0 / (sqrt(pow((1 / delta_x), 2.0)+pow((1 / delta_y), 2.0))))*(1.0 / c)*alpha;
   step = 1.0 / freq / delta_t;
   mu0 = 1.0e-7f * 4.0 * M_PI;
@@ -1414,7 +1415,8 @@ void AppMain() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, USEGLMAJOR);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, USEGLMINOR);
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-  gWindow = glfwCreateWindow(SIZE_X, SIZE_Y, "Strting...", NULL, NULL);
+  /* gWindow = glfwCreateWindow(SIZE_X, SIZE_Y, "Strting...", NULL, NULL); */
+  gWindow = glfwCreateWindow(Window_size_x, Window_size_y, "Strting...", NULL, NULL);
   if(!gWindow)
     throw runtime_error("glfwCreateWindow failed. Can your hardware handle OpenGL 3.2?");
 
@@ -1465,6 +1467,9 @@ void AppMain() {
   malloc_Initialdata();
 
   setInitialData(Grid_size_x, Grid_size_y);
+  cout << "delta_x-> "<<delta_x<<endl;
+  cout << "delta_y-> "<<delta_y<<endl;
+
   initWallSize();
 
   LoadShaders();
@@ -1552,9 +1557,11 @@ int main(int argc, char *argv[]) {
   cmdline::parser cmd;
   cmd.add<string>("render", 'r', "Render Device [gpu, cpu, copy, pin, map, um]", true, "", cmdline::oneof<string>("gpu", "cpu", "copy", "pin", "map", "um"));
   cmd.add<int>("block", 'b', "Thread size in one Block", false, 32, cmdline::range(1, 1024));
-  cmd.add<int>("grid_x", 'x', "X dimention of FDTD Grid", false, 1024, cmdline::range(1,10240));
-  cmd.add<int>("grid_y", 'y', "Y dimention of FDTD Grid", false, 1024, cmdline::range(1,10240));
-  cmd.add("v-sync", 'v', "v-sync for OpenGL");
+  cmd.add<int>("grid", 'g', "FDTD Grid Size", false, 1024, cmdline::range(1,10240));
+  cmd.add<int>("window", 'w', "Window Size", false, 512, cmdline::range(1,10240));
+  cmd.add<double>("Resolution", 'R', "FDTD Resolution", false, 100.0, cmdline::range(1.0,1024.0));
+  cmd.add<int>("thread", 't', "OpenMP threads", false, 8, cmdline::range(1,32));
+  cmd.add("v-sync", 'v', "v-sync for OpenGL (bool [=false])");
   cmd.add("help", 0, "Help Message");
   cmd.set_program_name("fdtd");
   bool ok = cmd.parse(argc, argv);
@@ -1585,20 +1592,31 @@ int main(int argc, char *argv[]) {
   }
   cout << "v-sync-> Off" << endl;
 
-  Grid_size_x = cmd.get<int>("grid_x");
-  Grid_size_y = cmd.get<int>("grid_y");
+  Grid_size_x = cmd.get<int>("grid");
+  Grid_size_y = cmd.get<int>("grid");
   cout << "Grid_x-> "<< Grid_size_x << endl;
   cout << "Grid_y-> "<< Grid_size_y << endl;
 
+  Window_size_x = cmd.get<int>("window");
+  Window_size_y = cmd.get<int>("window");
+  cout << "Window_x-> "<< Window_size_x << endl;
+  cout << "Window_y-> "<< Window_size_y << endl;
+
   Block_size = cmd.get<int>("block");
   cout << "Block-> "<< Block_size << endl;
+
+  Resolution = cmd.get<double>("Resolution");
+  cout << "Resolution-> "<< Resolution << endl;
+
+  OpenMP_thread = cmd.get<int>("thread");
+  cout << "Thread-> "<< OpenMP_thread << endl;
 
   cout << "-------------------------------------------"<<endl;
   normal_log("OpenMP");
   SHOW_DEFINE(_OPENMP);
   normal_log("OpenMP");
-  cout << "OpenMP Set threads:"<<USETHREAD<<endl;
-  omp_set_num_threads(USETHREAD);
+  cout << "OpenMP Set threads:"<<OpenMP_thread<<endl;
+  omp_set_num_threads(OpenMP_thread);
   cout << "-------------------------------------------"<<endl;
   int deviceCount = 0, driverVersion = 0, runtimeVersion = 0;
   checkCudaErrors(cudaGetDeviceCount(&deviceCount));
